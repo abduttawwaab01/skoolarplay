@@ -1,0 +1,45 @@
+{
+  "name": "SkoolarPlay",
+  "short_name": "SkoolarPlay",
+  "description": "Gamified Nigerian Duolingo-style learning platform for WAEC, JAMB, NECO and more",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "games"],
+  "shortcuts": [
+    {
+      "name": "Start Learning",
+      "url": "/?action=dashboard",
+      "description": "Jump back into learning"
+    },
+    {
+      "name": "Daily Challenge",
+      "url": "/?action=daily-challenge",
+      "description": "Take today's challenge"
+    },
+    {
+      "name": "Leaderboard",
+      "url": "/?action=leaderboard",
+      "description": "Check rankings"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
