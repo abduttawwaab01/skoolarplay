@@ -1,0 +1,2011 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER MODELS ====================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  password       String
+  role           String   @default("STUDENT") // ADMIN, STUDENT, TEACHER, SUPPORT
+  avatar         String?
+  bio            String?
+  gems           Int      @default(50)
+  xp             Int      @default(0)
+  streak         Int      @default(0)
+  longestStreak  Int      @default(0)
+  hearts         Int      @default(5)
+  maxHearts      Int      @default(5)
+  lastHeartRefillAt DateTime @default(now())
+  lastHeartLossAt DateTime @default(now()) // Track when heart was last lost (cooldown starts from here)
+  level          Int      @default(1)
+  isBanned       Boolean  @default(false)
+  isPremium      Boolean  @default(false)
+  premiumExpiresAt DateTime?
+  unlockedFeatures String  @default("[]") // JSON array of premium feature keys
+  planTier       String   @default("FREE") // FREE, STARTER, PRO, SCHOLAR, SCHOLAR_PLUS
+  gemMultiplier  Float    @default(1.0) // Multiplier for gem earnings (admin can set)
+  xpMultiplier Float    @default(1.0) // Multiplier for XP earnings (boosts)
+  activeBoosts  String   @default("[]") // JSON array of active boosts: [{type: "XP_BOOST", expiresAt: Date}]
+  badgeStyle    String   @default("default") // default, minimal, none
+  lastActiveAt   DateTime @default(now())
+  league         String   @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM, DIAMOND, SAPPHIRE, RUBY, OBSIDIAN
+  totalLessonsCompleted Int @default(0)
+  totalCoursesCompleted Int @default(0)
+  totalExamsCompleted   Int @default(0)
+  weeklyXp       Int      @default(0) // XP earned this week (resets weekly)
+  isOnline       Boolean  @default(false)
+  isDeleted      Boolean  @default(false) // Soft delete flag
+  deletedAt      DateTime? // When account was deleted
+  deletedBy      String? // Who deleted the account (admin or self)
+  delegatedPermissions String @default("[]") // JSON array of delegated permissions for support agents
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Email verification
+  emailVerified         DateTime?
+  verificationToken     String?
+  verificationTokenExpiry DateTime?
+  
+  // Notification preferences
+  emailNotifications    Boolean  @default(true)
+  
+  // Supabase Auth
+  supabaseId      String?
+  referralCode    String?
+
+  enrollments                  Enrollment[]
+  lessonProgress               LessonProgress[]
+  achievements                 UserAchievement[]
+  purchases                    Purchase[]
+  dailyChallengeCompletions    DailyChallengeCompletion[]
+  leaderboardEntries           LeaderboardEntry[]
+  certificates                 Certificate[]
+  examAttempts                 ExamAttempt[]
+  notifications                Notification[]
+  studyGroups                  StudyGroupMember[]
+  createdGroups                StudyGroup[]      @relation("GroupCreator")
+  teacherProfile               TeacherProfile?
+  loginRewards                 LoginReward[]
+  spinResults                  SpinResult[]
+  questCompletions             QuestCompletion[]
+  referralsMade                Referral[]              @relation("Referrer")
+  referredBy                   Referral?               @relation("Referred")
+  mysteryBoxes                 MysteryBox[]
+  bossBattleCompletions        BossBattleCompletion[]
+  motivationalQuotes           MotivationalQuote[]
+  courseReviews                CourseReview[]            @relation("CourseReviewer")
+  teacherCourses               Course[]                  @relation("CourseTeacher")
+  groupChallengeCompletions    GroupChallengeCompletion[]
+  followers                    Follows[]                 @relation("Following")
+  following                    Follows[]                 @relation("Follower")
+  sentGifts                    GemGift[]                  @relation("SentGifts")
+  receivedGifts                GemGift[]                  @relation("ReceivedGifts")
+  sentMessages                TeacherMessage[]           @relation("SentMessages")
+  receivedMessages             TeacherMessage[]           @relation("ReceivedMessages")
+  auditLogs                    AuditLog[]
+   payments                     Payment[]
+   reports                      UserReport[]
+   pushSubscriptions            PushSubscription[]
+   groupMessages                GroupMessage[]
+    feedPosts                    FeedPost[]           @relation("FeedAuthor")
+    feedLikes                    FeedLike[]           @relation("UserFeedLikes")
+    feedComments                 FeedComment[]        @relation("UserFeedComments")
+    feedReports                  FeedReport[]         @relation("UserFeedReports")
+     subscriptions                Subscription[]       @relation("UserSubscriptions")
+     surveyResponses              SurveyResponse[]
+      vocabularyProgress           VocabularyProgress[]
+      gemTransactions              GemTransaction[]
+      dailyTasks                   DailyTask[]
+      socialRewards                SocialReward[]
+       userBattlePass               UserBattlePass[]
+       userFeatureOverrides         UserFeatureOverride[]
+       giftCodeRedemptions          GiftCodeRedemption[]
+       bankTransfers                BankTransfer[]
+       gameScores                  GameScore[]
+    }
+
+// ==================== CONTENT MODELS ====================
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  color       String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  courses Course[]
+}
+
+model Course {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  categoryId  String
+  icon        String?
+  color       String?
+  difficulty  String    @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  price       Float     @default(0) // Price in NGN
+  isFree      Boolean   @default(true)
+  isPremium   Boolean   @default(false) // Premium-restricted course
+  certificationEnabled Boolean @default(false)
+  minimumLevel String   @default("A1") // A1, A2, B1, B2, C1, C2
+  status      String    @default("PUBLISHED") // DRAFT, PUBLISHED, UNLISTED, UNDER_REVIEW
+  teacherId   String?
+  cutoffScore Int       @default(70) // Minimum score to pass (admin-adjustable)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category    Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  modules     Module[]
+  enrollments Enrollment[]
+  studyPathId String?
+  studyPath   StudyPath?      @relation(fields: [studyPathId], references: [id])
+  teacher     User?           @relation("CourseTeacher", fields: [teacherId], references: [id])
+  reviews     CourseReview[]
+  payments    Payment[]
+
+  @@index([isActive])
+  @@index([categoryId])
+  @@index([teacherId])
+  @@index([status])
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  title     String
+  courseId  String
+  order     Int      @default(0)
+  isPremium Boolean  @default(false) // Premium-restricted module
+  isActive  Boolean  @default(true) // Active/Inactive toggle
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id          String   @id @default(cuid())
+  title       String
+  moduleId    String
+  type        String   @default("QUIZ") // QUIZ, VIDEO, READING, MIXED
+  order       Int      @default(0)
+  xpReward    Int      @default(10)
+  gemReward   Int      @default(1)
+  isActive    Boolean  @default(true)
+  isPremium   Boolean  @default(false) // Premium-restricted lesson
+  isLocked    Boolean  @default(false)
+  lockReason  String?
+  unlockThreshold Int  @default(50)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module       Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions    Question[]
+  videoContent VideoContent[]
+  lessonNote   LessonNote?
+  storyLesson  StoryLesson?
+  progress     LessonProgress[]
+
+  @@index([moduleId])
+}
+
+model LessonNote {
+  id          String   @id @default(cuid())
+  lessonId    String?  @unique // Optional - can be standalone note (unique for one-to-one)
+  title       String
+  content     String   @db.Text // Rich text content
+  audioUrl    String?  // Audio file for TTS or uploaded audio
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  // Quiz settings
+  hasQuiz     Boolean  @default(false)
+  quizTitle   String?
+  quizQuestions Json?  // JSON array of quiz questions
+  quizPassingScore Int @default(50) // Percentage to pass
+  quizTimeLimit Int?   // Time limit in minutes
+  // Security features
+  quizRequireFullscreen Boolean @default(false)
+  quizPreventTabSwitch   Boolean @default(false)
+  quizPreventCopyPaste   Boolean @default(false)
+  quizShuffleQuestions   Boolean @default(false)
+  quizShuffleOptions     Boolean @default(false)
+  
+  // Quiz progress tracking
+  quizAttempts Int      @default(0) // Track number of attempts
+  
+  // Rewards for video quiz (admin can set based on difficulty)
+  quizXpReward  Int     @default(10) // XP reward for passing video quiz
+  quizGemReward Int     @default(1)  // Gem reward for passing video quiz
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lesson      Lesson?  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  @@index([lessonId])
+  @@index([isActive])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  lessonId      String
+  type          String   @default("MCQ") // MCQ, FILL_BLANK, DRAG_DROP, MATCHING, TRUE_FALSE, ORDERING, CHECKBOX, SPEECH
+  question      String
+  hint          String?
+  explanation   String?
+  options       String?  // JSON string
+  correctAnswer String   // JSON string
+  language     String?  // Language code for SPEECH questions (yo, ig, ha, sw, en, etc.)
+  order         Int      @default(0)
+  points        Int      @default(10)
+  isActive      Boolean  @default(true) // Active/Inactive toggle
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model VideoContent {
+  id        String   @id @default(cuid())
+  lessonId  String
+  title     String
+  url       String
+  duration  Int      @default(0)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  quiz   VideoQuiz?
+
+  @@index([lessonId])
+}
+
+// ==================== VIDEO QUIZ MODELS ====================
+
+model VideoQuiz {
+  id            String   @id @default(cuid())
+  videoId      String   @unique
+  title        String   @default("Video Quiz")
+  passingScore Int      @default(60)
+  timeLimit    Int?     // Time limit in minutes
+  xpReward     Int      @default(15)
+  gemReward    Int      @default(2)
+  isActive     Boolean  @default(true)
+  
+  // Security features
+  requireFullscreen   Boolean @default(false)
+  preventTabSwitch    Boolean @default(false)
+  preventCopyPaste    Boolean @default(false)
+  shuffleQuestions    Boolean @default(false)
+  shuffleOptions      Boolean @default(false)
+  
+  // Progress tracking
+  attempts     Int      @default(0)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  video        VideoContent          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  questions    VideoQuizQuestion[]
+  
+  @@index([videoId])
+  @@index([isActive])
+}
+
+model VideoQuizQuestion {
+  id            String   @id @default(cuid())
+  videoQuizId  String
+  type          String   @default("MCQ") // MCQ, FILL_BLANK, DRAG_DROP, MATCHING, TRUE_FALSE, ORDERING
+  question      String
+  hint          String?
+  explanation   String?
+  options       String?  // JSON string
+  correctAnswer String   // JSON string
+  order         Int      @default(0)
+  points        Int      @default(10)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  videoQuiz    VideoQuiz @relation(fields: [videoQuizId], references: [id], onDelete: Cascade)
+
+  @@index([videoQuizId])
+  @@index([order])
+}
+
+// ==================== VIDEO QUIZ PROGRESS MODEL ====================
+
+model VideoQuizProgress {
+  id            String   @id @default(cuid())
+  userId        String
+  videoId       String
+  score         Float?
+  attempts      Int      @default(0)
+  bestScore     Float?
+  completed     Boolean  @default(false)
+  completedAt   DateTime?
+  lastAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, videoId])
+  @@index([userId])
+  @@index([videoId])
+}
+
+// ==================== PROGRESS MODELS ====================
+
+model Enrollment {
+  id              String    @id @default(cuid())
+  userId          String
+  courseId        String
+  progress        Float     @default(0)
+  paymentStatus   String    @default("FREE") // FREE, PAID, PENDING
+  paymentAmount   Float?
+  paymentRef      String?   // Paystack reference
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+}
+
+model LessonProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  lessonId    String
+  completed   Boolean   @default(false)
+  score       Float?
+  attempts    Int       @default(0)
+  bestScore   Float?
+  timeSpent   Int       @default(0) // seconds
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+}
+
+// ==================== GAMIFICATION MODELS ====================
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String?
+  icon        String?
+  category    String   @default("GENERAL") // GENERAL, LEARNING, SOCIAL, STREAK, MASTERY
+  condition   String?  // JSON describing how to earn
+  gemReward   Int      @default(0)
+  xpReward    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users UserAchievement[]
+  
+  @@index([category])
+  @@index([isActive])
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  earnedAt      DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+}
+
+model ShopItem {
+  id        String   @id @default(cuid())
+  title     String
+  description String?
+  type      String   // POWER_UP, AVATAR, THEME, STREAK_FREEZE, BOOST
+  icon      String?
+  price     Int
+  quantity  Int?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases Purchase[]
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String
+  quantity  Int      @default(1)
+  totalGems Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopItem ShopItem @relation(fields: [itemId], references: [id])
+}
+
+// ==================== DAILY CHALLENGE MODELS ====================
+
+model DailyChallenge {
+  id        String   @id @default(cuid())
+  title     String
+  description String?
+  type      String   // QUIZ, SPEED, ACCURACY
+  xpReward  Int      @default(0)
+  gemReward Int      @default(0)
+  date      String   // YYYY-MM-DD
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  completions DailyChallengeCompletion[]
+
+  @@index([date])
+}
+
+model DailyChallengeCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeId String
+  score       Float?
+  completedAt DateTime @default(now())
+
+  user            User            @relation(fields: [userId], references: [id])
+  dailyChallenge  DailyChallenge  @relation(fields: [challengeId], references: [id])
+
+  @@unique([userId, challengeId])
+}
+
+// ==================== LEADERBOARD MODEL ====================
+
+model LeaderboardEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  period    String   // DAILY, WEEKLY, ALL_TIME
+  xp        Int      @default(0)
+  rank      Int      @default(0)
+  date      String   // YYYY-MM-DD
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, period, date])
+  @@index([userId])
+}
+
+// ==================== CERTIFICATE MODEL ====================
+
+model Certificate {
+  id            String   @id @default(cuid())
+  userId        String
+  courseId      String
+  courseName    String
+  verificationCode String @unique
+  
+  // Certificate type based on course content
+  type          String   @default("STANDARD") // STANDARD, PREMIUM, VERIFIED
+  certificateLevel String @default("basic") // basic, intermediate, premium
+  courseType    String   @default("GENERAL") // GENERAL, WAEC, JAMB, NECO, VOCATIONAL, PROFESSIONAL
+  
+  // Certificate content
+  score         Float?
+  totalLessons  Int?
+  completedLessons Int?
+  
+  // Grade/performance info
+  gradeScore    String?  // e.g., "A1", "B2", "400/400"
+  competencyAreas String? // JSON array of skills mastered
+  rank          Int?     // Class rank if applicable
+  completionTime Int?    // Time spent in minutes
+  
+  // Design settings
+  templateStyle String   @default("standard") // standard, modern, classic, animated
+  sealStyle     String   @default("round") // round, badge, stamp, animated
+  
+  // Issuer info
+  issuedBy      String   @default("SkoolarPlay")
+  ownerName     String   @default("Odebunmi Tawwab")
+  
+  // Dates
+  earnedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([verificationCode])
+  @@index([courseType])
+}
+
+// ==================== ADMIN MODELS ====================
+
+model AdminSettings {
+  id                  String   @id @default(cuid())
+  platformName        String   @default("SkoolarPlay")
+  dailyXpGoal         Int      @default(50)
+  maxHearts           Int      @default(5)
+  heartRefillHours    Int      @default(1)
+  gemEarnRate         Float    @default(1.0)
+  xpMultiplier        Float    @default(1.0)
+  maintenanceMode     Boolean  @default(false)
+  allowRegistration   Boolean  @default(true)
+  dangerZonePassphrase String?  // Security passphrase for danger zone operations
+  defaultCutoffScore   Int      @default(70) // Default cutoff score for new courses
+  inactivityReminders  String   @default("[5,10,24,48,168,336]") // JSON array of hours for inactivity push notifications
+  refundPolicyDays     Int      @default(7) // Refund policy in days
+  teacherRefundEnabled Boolean  @default(true) // Allow teacher course refunds
+
+  // ===== CUSTOM BRANDING =====
+  loginPageLogoUrl   String?  // Logo displayed on login/register pages
+  navBarLogoUrl      String?  // Logo displayed in navigation bar
+  footerLogoUrl      String?  // Logo displayed in footer
+  faviconUrl         String?  // Custom favicon URL
+
+  // ===== LESSON ORDER ENFORCEMENT =====
+  enforceLessonOrder  Boolean  @default(true) // Lock lessons until previous is passed
+  allowLessonSkip     Boolean  @default(false) // Allow premium users to skip (overrides enforceLessonOrder)
+
+  // ===== COMPLETION EXAM FOR CERTIFICATES =====
+  requireCompletionExam   Boolean  @default(true) // Require exam pass before certificate
+  completionExamPassMark  Int      @default(60) // Minimum score for completion exam
+  completionExamAttempts  Int      @default(3) // Max attempts at completion exam
+
+  // ===== AI INTEGRATION SETTINGS =====
+  aiEnabled            Boolean  @default(true) // Enable/disable AI assistant
+  aiRateLimitPerMinute Int      @default(10) // Max AI messages per minute per user
+  aiRateLimitPerDay    Int      @default(100) // Max AI messages per day per user
+  aiMaxContextMessages Int      @default(20) // Max conversation context messages
+  aiModel              String   @default("default") // AI model to use
+
+  // ===== STAY-FREE-FOREVER CACHE SETTINGS =====
+  cacheTTLMinutes      Int      @default(30) // Client-side cache TTL in minutes
+  enableOfflineMode    Boolean  @default(true) // Allow offline access to cached content
+  batchSyncInterval    Int      @default(5) // Minutes between batch syncs
+
+  // ===== PRELOADER SETTINGS =====
+  preloaderDurationSeconds Int   @default(3) // How long the preloader shows (in seconds)
+
+  // ===== EMAIL VERIFICATION SETTINGS =====
+  requireEmailVerification Boolean @default(true) // Whether to require email verification
+  autoVerifyNewUsers       Boolean @default(false) // Auto-verify new users (bypass email verification)
+
+  // ===== STUDY GROUP SETTINGS =====
+  freeMaxGroupsCreate    Int      @default(1)      // Groups free users can create
+  freeMaxGroupsJoin      Int      @default(3)      // Groups free users can join
+  premiumMaxGroupsCreate Int      @default(999)    // Premium users can create unlimited (999)
+  premiumMaxGroupsJoin   Int      @default(999)    // Premium users can join unlimited (999)
+  freeGroupCreateEnabled Boolean   @default(true)   // Allow free users to create groups
+  defaultGroupMaxMembers Int      @default(50)     // Default max members per group
+  
+  // ===== GROUP MESSAGE LIMITS =====
+  freeDailyMessageLimit  Int      @default(20)     // Daily message limit for free users
+  premiumDailyMessageLimit Int    @default(999999) // Unlimited for premium
+  groupMessageEnabled   Boolean  @default(true)   // Enable group chat feature
+
+  // ===== LEGAL SETTINGS =====
+  termsOfService        String?  @db.Text
+  privacyPolicy         String?  @db.Text
+
+  // ===== VIDEO UPLOAD SETTINGS =====
+  maxVideoSizeMb         Int      @default(100)    // Max video upload size in MB
+  allowedVideoFormats    String   @default("[\"mp4\",\"webm\",\"mov\"]") // Allowed video formats
+
+  // ===== CERTIFICATE SETTINGS =====
+  founderName            String   @default("Abdut Tawwab")  // Name on certificate
+  founderTitle           String   @default("Founder & CEO") // Title on certificate
+  founderSignatureUrl    String?  // Signature image URL
+  certificatePlatformUrl String?  // Platform URL for verification
+  certificateTemplate    String   @default("standard") // standard, intermediate, premium
+  premiumCertificateEnabled Boolean @default(true) // Only premium users can get premium certificates
+  premiumCertificateBadge String  @default("PREMIUM") // Badge text for premium certificates
+  
+  // Certificate course type auto-detection keywords
+  waecKeywords         String   @default("[\"WAEC\",\"West African Examination Council\",\"GCE\",\"WASSCE\",\"SSCE\"]")
+  jambKeywords         String   @default("[\"JAMB\",\"UTME\",\"Joint Admissions\",\" matriculation\"]")
+  necoKeywords         String   @default("[\"NECO\",\"National Examination Council\"]")
+  vocationalKeywords   String   @default("[\"Vocational\",\"Trade\",\"Technical\",\"Apprenticeship\"]")
+  professionalKeywords String   @default("[\"Professional\",\"Certification\",\"Industry\",\"Corporate\"]")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model FeatureFlag {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  content     String?
+  type        String    @default("INFO") // INFO, WARNING, PROMO
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  scheduledAt DateTime?
+  imageUrl    String?             // Banner image URL
+  bannerType  String    @default("FEATURE") // FEATURE, COURSE, UPDATE, PROMO
+  targetUrl   String?             // Link when banner is clicked
+  priority    Int       @default(0)           // Higher = shown first
+  dismissedBy String    @default("[]")     // JSON array of userIds who dismissed
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([priority])
+  @@index([bannerType])
+}
+
+// ==================== EXAM MODELS ====================
+
+model Exam {
+  id             String        @id @default(cuid())
+  title          String
+  description    String?
+  type           String        // WAEC, NECO, JAMB, MOCK, CUSTOM
+  subject        String        // Mathematics, English, Physics, Chemistry, Biology, etc.
+  year           Int?          // Year of past paper (e.g., 2024)
+  duration       Int           @default(60) // minutes
+  totalQuestions Int
+  totalMarks     Int           @default(100)
+  passingMark    Int           @default(50)
+  isActive       Boolean       @default(true)
+  isPublished    Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  sections  ExamSection[]
+  attempts ExamAttempt[]
+}
+
+model ExamSection {
+  id          String         @id @default(cuid())
+  examId      String
+  title       String
+  instruction String?
+  marks       Int
+  order       Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  questions ExamQuestion[]
+  exam      Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@index([examId])
+}
+
+model ExamQuestion {
+  id            String      @id @default(cuid())
+  sectionId     String
+  type          String      @default("MCQ") // MCQ, FILL_BLANK, TRUE_FALSE, ESSAY
+  question      String
+  options       String?     // JSON array of options
+  correctAnswer String      // JSON string
+  marks         Int         @default(1)
+  explanation   String?
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  section ExamSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+model ExamAttempt {
+  id            String   @id @default(cuid())
+  userId        String
+  examId        String
+  score         Int
+  totalMarks    Int
+  percentage    Float
+  timeSpent     Int      // seconds
+  answers       String   // JSON: {questionId: answer, ...}
+  sectionScores String?  // JSON: {sectionId: {score, total, percentage}}
+  passed        Boolean
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  exam Exam @relation(fields: [examId], references: [id])
+
+  @@index([userId])
+  @@index([examId])
+}
+
+// ==================== STUDY PATH MODELS ====================
+
+model StudyPath {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  type        String    // EXAM, SKILL, LANGUAGE
+  icon        String?
+  color       String?
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  courses Course[]
+}
+
+// ==================== STORY MODE MODEL ====================
+
+model StoryLesson {
+  id          String   @id @default(cuid())
+  lessonId    String   @unique
+  title       String
+  narrative   String
+  character   String?
+  setting     String?
+  mood        String?
+  choices     String?
+  lesson      Lesson   @relation(fields: [lessonId], references: [id])
+}
+
+// ==================== NOTIFICATION MODEL ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ==================== STUDY GROUP MODELS ====================
+
+model StudyGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  maxMembers  Int      @default(50)
+  createdBy   String
+  isActive    Boolean  @default(true)
+  members     StudyGroupMember[]
+  challenges  GroupChallenge[]
+  messages    GroupMessage[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  creator     User     @relation("GroupCreator", fields: [createdBy], references: [id])
+}
+
+model StudyGroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  role      String   @default("MEMBER")
+  joinedAt  DateTime @default(now())
+  group     StudyGroup @relation(fields: [groupId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model GroupMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  senderId  String
+  content   String
+  isDeleted Boolean  @default(false)
+  group     StudyGroup @relation(fields: [groupId], references: [id])
+  sender    User     @relation(fields: [senderId], references: [id])
+  createdAt DateTime @default(now())
+  @@index([groupId])
+  @@index([senderId])
+  @@index([groupId, createdAt])
+}
+
+model GroupChallenge {
+  id          String   @id @default(cuid())
+  groupId     String
+  title       String
+  description String?
+  targetCount Int      @default(10)
+  xpReward    Int
+  gemReward   Int
+  startDate   String
+  endDate     String
+  isActive    Boolean  @default(true)
+  group       StudyGroup @relation(fields: [groupId], references: [id])
+  completions GroupChallengeCompletion[]
+  createdAt   DateTime @default(now())
+}
+
+model GroupChallengeCompletion {
+  id          String   @id @default(cuid())
+  challengeId String
+  userId      String
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  challenge   GroupChallenge @relation(fields: [challengeId], references: [id])
+  user        User           @relation(fields: [userId], references: [id])
+  @@unique([challengeId, userId])
+}
+
+// ==================== TEACHER PROFILE MODEL ====================
+
+model TeacherProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  bio              String?
+  subjects         String
+  experience       String?  // e.g. '3-5 years'
+  reason           String?  // Why they want to teach
+  sampleTitle      String?  // Sample lesson title
+  sampleDescription String? // Sample lesson description
+  rating           Float    @default(0)
+  totalStudents    Int      @default(0)
+  totalCourses     Int      @default(0)
+  status           String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  bankName         String?
+  accountNumber    String?
+  accountName      String?
+  totalEarnings    Float    @default(0)
+  availableBalance Float    @default(0)
+  commissionRate   Float    @default(0.15) // 15% platform commission
+  isVerified       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id])
+  reviews          CourseReview[]
+  payouts          TeacherPayout[]
+  bookings         TeacherBooking[]
+}
+
+model TeacherBooking {
+  id               String   @id @default(cuid())
+  teacherProfileId String
+  studentId        String
+  scheduleDate     DateTime
+  durationMinutes  Int      @default(60)
+  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, COMPLETED
+  meetingLink      String?
+  paymentStatus    String   @default("PENDING") // PENDING, PAID, REFUNDED
+  price            Float
+  paymentMethod    String   @default("GEMS") // GEMS, NGN
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  teacher          TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+}
+
+// ==================== REWARD/GAMIFICATION MODELS ====================
+
+model LoginReward {
+  id        String   @id @default(cuid())
+  userId    String
+  dayNumber Int
+  gems      Int
+  xp        Int
+  claimedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, dayNumber])
+  @@index([userId])
+}
+
+model SpinResult {
+  id           String   @id @default(cuid())
+  userId       String
+  rewardType   String
+  rewardAmount Int      @default(0)
+  rewardName   String
+  spunAt       DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([spunAt])
+}
+
+model Quest {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        String
+  requirement String
+  targetCount Int      @default(1)
+  xpReward    Int
+  gemReward   Int
+  isActive    Boolean  @default(true)
+  startDate   String
+  endDate     String
+  createdAt   DateTime @default(now())
+  completions QuestCompletion[]
+}
+
+model QuestCompletion {
+  id          String    @id @default(cuid())
+  userId      String
+  questId     String
+  progress    Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  user        User      @relation(fields: [userId], references: [id])
+  quest       Quest     @relation(fields: [questId], references: [id])
+
+  @@unique([userId, questId])
+}
+
+model Referral {
+  id            String   @id @default(cuid())
+  referrerId    String
+  referredEmail String  @unique
+  referredId    String?  @unique
+  rewardClaimed Boolean  @default(false)
+  rewardGems    Int      @default(25)
+  createdAt     DateTime @default(now())
+  referrer      User     @relation("Referrer", fields: [referrerId], references: [id])
+  referred      User?    @relation("Referred", fields: [referredId], references: [id])
+}
+
+model MysteryBox {
+  id           String   @id @default(cuid())
+  userId       String
+  rewardType   String
+  rewardAmount Int
+  rewardName   String
+  openedAt     DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Follows {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model BossBattle {
+  id           String   @id @default(cuid())
+  courseId     String
+  moduleId     String?
+  title        String
+  description  String
+  difficulty   String   @default("NORMAL")
+  hp           Int      @default(100)
+  xpReward    Int
+  gemReward    Int
+  timeLimit    Int      @default(120)
+  isActive     Boolean  @default(true)
+  completions  BossBattleCompletion[]
+  createdAt    DateTime @default(now())
+}
+
+model BossBattleCompletion {
+  id           String   @id @default(cuid())
+  userId       String
+  bossBattleId String
+  damageDealt  Int      @default(0)
+  completed    Boolean  @default(false)
+  score        Int      @default(0)
+  completedAt  DateTime?
+  user         User       @relation(fields: [userId], references: [id])
+  bossBattle   BossBattle @relation(fields: [bossBattleId], references: [id])
+
+  @@unique([userId, bossBattleId])
+}
+
+// ==================== COURSE REVIEW MODEL ====================
+
+model CourseReview {
+  id               String   @id @default(cuid())
+  userId           String
+  courseId         String
+  teacherId        String
+  rating           Int      // 1-5
+  comment          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User           @relation("CourseReviewer", fields: [userId], references: [id])
+  course           Course         @relation(fields: [courseId], references: [id])
+  teacher          TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+}
+
+// ==================== TEACHER PAYOUT MODEL ====================
+
+model TeacherPayout {
+  id               String    @id @default(cuid())
+  teacherProfileId String
+  amount           Float
+  status           String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  bankName         String
+  accountNumber    String
+  accountName      String
+  reference        String?
+  requestedAt      DateTime  @default(now())
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  teacher          TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+
+  @@index([teacherProfileId])
+  @@index([status])
+}
+
+// ==================== MOTIVATIONAL QUOTE MODEL ====================
+
+model MotivationalQuote {
+  id        String   @id @default(cuid())
+  text      String
+  author    String
+  category  String   @default("GENERAL") // GENERAL, LEARNING, EXAM, MOTIVATION, FUNNY
+  isActive  Boolean  @default(true)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator User @relation(fields: [createdBy], references: [id])
+}
+
+// ==================== AUDIT LOG MODEL ====================
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorName String
+  action    String   // CREATE, UPDATE, DELETE, BAN, APPROVE, REJECT, etc.
+  entity    String   // User, Course, Exam, etc.
+  entityId  String
+  details   String?  // JSON string with change details
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// ==================== PAYMENT MODEL ====================
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  amount      Float
+  currency    String   @default("NGN")
+  status      String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  provider    String   @default("PAYSTACK")
+  reference   String   @unique
+  metadata    String?  // JSON string
+  refunded    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+
+   @@index([userId])
+   @@index([status])
+   @@index([createdAt])
+  }
+
+// ==================== BANK TRANSFER MODEL ====================
+// Manual bank transfer payments for users without cards
+
+model BankTransfer {
+  id            String   @id @default(cuid())
+  userId        String
+  amount        Float
+  currency      String   @default("NGN")
+  status        String   @default("PENDING") // PENDING, AWAITING_PAYMENT, VERIFIED, REJECTED, EXPIRED
+  
+  // Bank details
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  
+  // Payment reference (user's payment reference)
+  paymentRef    String?
+  
+  // Admin verification
+  verifiedAt    DateTime?
+  verifiedBy    String?
+  rejectionReason String?
+  
+  // Expiry
+  expiresAt     DateTime?
+  
+  // Links to what they're paying for
+  paymentType   String?  // COURSE, SUBSCRIPTION, DONATION
+  courseId      String?
+  planType      String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([status])
+  @@index([paymentRef])
+  @@index([expiresAt])
+}
+
+// ==================== SUBSCRIPTION TIER MODEL ====================
+// Admin-configurable subscription tiers with pricing
+
+model SubscriptionTier {
+  id            String   @id @default(cuid())
+  key           String   @unique // FREE, STARTER, PRO, SCHOLAR, SCHOLAR_PLUS
+  name          String   // "Starter", "Pro", "Scholar"
+  displayName   String   // "Starter Plan", "Pro Member", "Scholar"
+  description   String?  // Tier description
+  
+  // Pricing (in NGN)
+  monthlyPrice  Float    @default(0)
+  quarterlyPrice Float    @default(0)
+  annualPrice   Float    @default(0)
+  
+  // Limits
+  maxHearts           Int @default(5)
+  maxGroupsCreate     Int @default(1)
+  maxGroupsJoin       Int @default(3)
+  dailyMessageLimit   Int @default(10)
+  aiChatLimitPerDay   Int @default(5)
+  
+  // Features (JSON array of feature keys included)
+  features      String   @default("[]")
+  
+  // Visual
+  color         String   @default("#6B7280") // Badge color
+  icon          String   @default("star") // Badge icon
+  sortOrder     Int      @default(0)
+  
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  subscriptions Subscription[]
+  
+  @@index([key])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ==================== FEATURE TIER MODEL ====================
+// Controls which tier can access which feature
+
+model FeatureTier {
+  id          String   @id @default(cuid())
+  featureKey  String   @unique // ADVANCED_ANALYTICS, EXAM_HUB, etc.
+  name        String   // Display name
+  description String?
+  
+  // Default minimum tier required (can be overridden per user)
+  minTier     String   @default("PRO") // FREE, STARTER, PRO, SCHOLAR, SCHOLAR_PLUS
+  
+  // Default access state
+  isEnabled   Boolean  @default(true)
+  
+  // Gem cost if applicable (for pay-to-unlock)
+  gemCost     Int?     
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  overrides   UserFeatureOverride[]
+  
+  @@index([featureKey])
+  @@index([minTier])
+}
+
+// ==================== USER FEATURE OVERRIDE MODEL ====================
+// Admin can grant/deny specific features per user
+
+model UserFeatureOverride {
+  id          String   @id @default(cuid())
+  userId      String
+  featureKey  String
+  
+  access      String   // GRANTED, DENIED
+  expiresAt   DateTime?
+  reason      String?  // "Holiday special", "Beta tester", etc.
+  grantedBy   String   // Admin ID
+  createdAt   DateTime @default(now())
+  
+  featureTier FeatureTier @relation(fields: [featureKey], references: [featureKey])
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, featureKey])
+  @@index([userId])
+  @@index([featureKey])
+}
+
+// ==================== SUBSCRIPTION MODEL ====================
+  model Subscription {
+     id              String   @id @default(cuid())
+     userId          String
+     tierKey         String   // References SubscriptionTier.key
+     plan            String   // monthly, quarterly, annual
+     amount          Float    // Amount paid in NGN
+     status          String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+     paystackRef     String?  // Paystack reference
+     startsAt        DateTime @default(now())
+     expiresAt       DateTime
+     cancelledAt     DateTime?
+     createdBy       String   // Admin ID if manually assigned
+     createdAt       DateTime @default(now())
+     updatedAt       DateTime @updatedAt
+
+     user User @relation("UserSubscriptions", fields: [userId], references: [id])
+     tier SubscriptionTier @relation(fields: [tierKey], references: [key])
+
+    @@index([userId])
+    @@index([status])
+    @@index([expiresAt])
+    @@index([tierKey])
+  }
+
+ // ==================== USER REPORT MODEL ====================
+model UserReport {
+  id          String    @id @default(cuid())
+  reporterId  String
+  targetType  String    // USER, CONTENT
+  targetId    String
+  reason      String
+  description String?
+  status      String    @default("PENDING") // PENDING, REVIEWED, RESOLVED, DISMISSED
+  reviewedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([targetType])
+}
+
+// ==================== TEACHER MESSAGING MODEL ====================
+
+model TeacherMessage {
+  id          String   @id @default(cuid())
+  senderId    String
+  recipientId String
+  courseId    String?
+  subject     String
+  content     String
+  isRead      Boolean  @default(false)
+  senderRole  String   @default("STUDENT") // STUDENT, TEACHER
+  createdAt   DateTime @default(now())
+
+  sender    User @relation("SentMessages", fields: [senderId], references: [id])
+  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id])
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([isRead])
+}
+
+// ==================== GEM GIFT MODEL ====================
+
+model GemGift {
+  id          String   @id @default(uuid())
+  senderId    String
+  recipientId String
+  amount      Int
+  message     String?
+  createdAt   DateTime @default(now())
+
+  sender    User @relation(fields: [senderId], references: [id], name: "SentGifts")
+  recipient User @relation(fields: [recipientId], references: [id], name: "ReceivedGifts")
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
+}
+
+// ==================== GEM TRANSACTION MODEL ====================
+// Detailed gem history for analytics and transparency
+
+model GemTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Int      // Positive = earned, Negative = spent
+  type        String   // EARN, SPEND, BONUS, REFERRAL, EVENT, ACHIEVEMENT, GIFT_SENT, GIFT_RECEIVED
+  source      String   // quiz, vocabulary, spin, shop, subscription, gift, achievement, etc.
+  description String
+  relatedId   String?  // quizId, vocabularySetId, etc.
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, type])
+  @@index([createdAt])
+}
+
+// ==================== GIFT CODE MODEL ====================
+// Admin-generated gift codes for free upgrades/rewards
+
+model GiftCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  tier        String?  // STARTER, PRO, SCHOLAR, SCHOLAR_PLUS (null = any)
+  duration    Int      // Months of access
+  gems        Int?     // Bonus gems (optional)
+  usesTotal   Int      @default(1)
+  usesUsed    Int      @default(0)
+  expiresAt   DateTime?
+  createdBy   String   // Admin ID
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  
+  redemptions GiftCodeRedemption[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model GiftCodeRedemption {
+  id            String   @id @default(cuid())
+  giftCodeId    String
+  userId        String
+  redeemedAt    DateTime @default(now())
+  
+  giftCode      GiftCode @relation(fields: [giftCodeId], references: [id])
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([giftCodeId, userId])
+  @@index([userId])
+}
+
+// ==================== DAILY TASK MODEL ====================
+
+model DailyTask {
+  id          String   @id @default(cuid())
+  userId      String
+  date        String   // YYYY-MM-DD format
+  tasks       String   // JSON: {quiz: bool, vocab: bool, groupMsg: bool, etc.}
+  completed   Boolean  @default(false)
+  bonusClaimed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+// ==================== EVENT BONUS MODEL ====================
+// For seasonal events with gem multipliers
+
+model EventBonus {
+  id          String   @id @default(cuid())
+  name        String   // "Christmas 2026"
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  multiplier  Float    @default(1.0) // 2.0 = double gems
+  gemBonus    Int      @default(0)   // Flat bonus for first login
+  xpMultiplier Float   @default(1.0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+// ==================== BATTLE PASS MODEL ====================
+
+model BattlePass {
+  id            String   @id @default(cuid())
+  season        String   // "Season 1", "Feb 2026"
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  freeRewards   String   // JSON array of free tier rewards
+  premiumRewards String  // JSON array of premium tier rewards
+  gemCost       Int      @default(200) // Cost for premium track
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  userProgress  UserBattlePass[]
+  
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+model UserBattlePass {
+  id              String   @id @default(cuid())
+  userId          String
+  battlePassId    String
+  level           Int      @default(0)
+  xp              Int      @default(0)
+  premiumTrack    Boolean  @default(false)
+  claimedRewards  String   @default("[]") // JSON array of claimed level rewards
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  battlePass      BattlePass @relation(fields: [battlePassId], references: [id])
+  
+  @@unique([userId, battlePassId])
+  @@index([userId])
+  @@index([battlePassId])
+}
+
+// ==================== SOCIAL REWARD MODEL ====================
+// Tracks social engagement for rewards
+
+model SocialReward {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String   // LIKE_RECEIVED, COMMENT_RECEIVED, SHARE_RECEIVED, FOLLOW_RECEIVED
+  threshold     Int      @default(0) // 10 likes, 5 comments, etc.
+  gemReward     Int      @default(0)
+  claimed       Boolean  @default(false)
+  relatedId     String?  // PostId or userId
+  createdAt     DateTime @default(now())
+  
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, type])
+  @@index([claimed])
+}
+
+// ==================== PASSWORD RESET TOKEN MODEL ====================
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// ==================== PUSH NOTIFICATION MODEL ====================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   // Web push endpoint URL
+  keys      String   // JSON: { p256dh, auth }
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ==================== WAEC/JAMB QUESTIONS MODEL ====================
+
+model WaecQuestion {
+  id            String   @id @default(cuid())
+  courseId      String?
+  lessonId      String?
+  topicId       String?
+  year          Int?     // Exam year
+  questionType  String   @default("MCQ") // MCQ, ESSAY, FILL_BLANK, TRUE_FALSE
+  question      String
+  options       String?  // JSON string of options array
+  correctAnswer String
+  explanation   String?
+  difficulty    String   @default("HARD") // EASY, MEDIUM, HARD, VERY_HARD
+  isPremium     Boolean  @default(true) // WAEC questions are premium-only
+  subject       String?  // Mathematics, English, Physics, etc.
+  examType      String?  // WAEC, JAMB, NECO
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([subject])
+  @@index([examType])
+  @@index([year])
+  @@index([isPremium])
+}
+
+// ==================== INVESTOR/PARTNER MODEL ====================
+
+model InvestorPartner {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?  // URL to partner/investor logo image
+  website     String?
+  tier        String   @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM
+  description String?
+  isActive    Boolean  @default(true)
+  displayOrder Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tier])
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+ // ==================== SPONSOR MODEL ====================
+
+model Sponsor {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?  // URL to sponsor logo image
+  website     String?
+  tier        String   @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM, DIAMOND
+  description String?
+  donatedAmount Float  @default(0) // Amount donated in NGN
+  isActive    Boolean  @default(true)
+  displayOrder Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tier])
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+// ==================== VOLUNTEER MODEL ====================
+
+model Volunteer {
+  id          String   @id @default(cuid())
+  name        String
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+// ==================== DONATION SETTINGS MODEL ====================
+// Single record storing platform donation configuration
+
+model DonationSettings {
+  id                    String   @id @default(cuid())
+  goalAmount            Float    @default(5000000) // Fundraising goal in NGN
+  currentAmount         Float    @default(0)       // Current amount raised (auto-updated)
+  currency              String   @default("NGN")
+  paystackPublicKey     String?  // Public key for donation checkout
+  paystackSecretKey     String?  // Encrypted secret key (admin only)
+  message               String?  // Hero message/headline
+  isActive              Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+  updatedBy             String   // Admin user ID who last updated
+
+  @@unique([id])
+}
+
+// ==================== DONATION MODEL ====================
+// Individual donation transactions
+
+model Donation {
+  id                    String   @id @default(cuid())
+  donorName             String   // Required (even if anonymous - show "Anonymous")
+  donorEmail            String?  // Optional for privacy
+  amount                Float    // Amount in NGN (not kobo)
+  tier                  String?  // Which tier they selected (Supporter, Champion, etc.)
+  message               String?  // Optional message from donor
+  isAnonymous           Boolean  @default(false)
+  paymentRef            String?  // Paystack reference number
+  paymentStatus         String   @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  provider              String   @default("DIRECT")   // DIRECT, PAYSTACK, BANK_TRANSFER
+  metadata              String?  // JSON string for extra data
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([paymentRef])
+  @@index([amount])
+}
+
+// ==================== DONOR RANKING TIER MODEL ====================
+// Configurable tier thresholds for donor recognition
+
+model DonorTier {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Bronze", "Silver", "Gold"
+  minAmount   Float    // Minimum cumulative donation to qualify (NGN)
+  maxAmount   Float?   // Maximum amount (null = no upper limit)
+  badgeColor  String   @default("#CD7F32") // Hex color for badge
+  badgeIcon   String?  // Optional icon
+  isActive    Boolean  @default(true)
+  displayOrder Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+   @@unique([name])
+   @@index([displayOrder])
+   @@index([minAmount])
+ }
+
+ // ==================== FEED POST MODEL ====================
+ // User-generated posts for the community feed
+
+model FeedPost {
+   id               String   @id @default(cuid())
+   authorId         String
+   content          String   // Text content (max 5000 chars)
+   visibility       String   @default("PUBLIC") // PUBLIC, FOLLOWERS_ONLY, PRIVATE
+   isApproved       Boolean  @default(false) // Admin approval required before visible
+   isHidden         Boolean  @default(false) // Soft delete/hide by author or admin
+   likeCount        Int      @default(0)
+   commentCount     Int      @default(0)
+   mediaUrls        String?  // JSON array of media URLs (images, videos)
+   mentionedUserIds String?  // JSON array of user IDs mentioned (@mentions)
+   createdAt        DateTime @default(now())
+   updatedAt        DateTime @updatedAt
+
+    author           User     @relation("FeedAuthor", fields: [authorId], references: [id])
+    likes            FeedLike[]
+    comments         FeedComment[]
+    reports          FeedReport[] @relation("PostReports")
+
+   @@index([authorId])
+   @@index([createdAt])
+   @@index([isApproved])
+   @@index([isHidden])
+ }
+
+ // ==================== FEED LIKE MODEL ====================
+
+ model FeedLike {
+    id        String   @id @default(cuid())
+    postId    String
+    userId    String
+    type      String   @default("LIKE") // LIKE, LOVE, HAHA, WOW, SAD, ANGRY (emoji reactions)
+    createdAt DateTime @default(now())
+
+    post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+    user      User     @relation("UserFeedLikes", fields: [userId], references: [id])
+
+   @@unique([postId, userId])
+   @@index([userId])
+   @@index([createdAt])
+ }
+
+ // ==================== FEED COMMENT MODEL ====================
+
+ model FeedComment {
+    id         String   @id @default(cuid())
+    postId     String
+    userId     String
+    parentId   String?  // For threaded comments (replies)
+    content    String   // Comment text (max 1000 chars)
+    isEdited   Boolean  @default(false)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    post       FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+    user       User     @relation("UserFeedComments", fields: [userId], references: [id])
+    parent     FeedComment? @relation("CommentReply", fields: [parentId], references: [id])
+    replies    FeedComment[] @relation("CommentReply")
+
+   @@index([postId])
+   @@index([userId])
+   @@index([createdAt])
+   @@index([parentId])
+ }
+
+ // ==================== FEED REPORT MODEL ====================
+
+model FeedReport {
+   id          String   @id @default(cuid())
+   postId      String
+   reporterId  String
+   reason      String   // SPAM, INAPPROPRIATE, HARASSMENT, FALSE_INFO, OTHER
+   description String?  // Detailed explanation
+   status      String   @default("PENDING") // PENDING, REVIEWED, RESOLVED, DISMISSED
+   reviewedBy  String?  // Admin who reviewed
+   resolvedAt  DateTime?
+   createdAt   DateTime @default(now())
+
+   post        FeedPost @relation("PostReports", fields: [postId], references: [id])
+   reporter    User     @relation("UserFeedReports", fields: [reporterId], references: [id])
+
+    @@unique([postId, reporterId]) // One report per user per post
+    @@index([status])
+    @@index([createdAt])
+  }
+
+  // ==================== SURVEY MODELS ====================
+
+  model Survey {
+    id            String   @id @default(cuid())
+    title         String
+    description   String?
+    triggerType   String   @default("COURSE_COMPLETION") // COURSE_COMPLETION, MANUAL, SCHEDULED
+    triggerConfig String?  // JSON: { courseId, lessonId, delayDays, etc. }
+    isActive      Boolean  @default(true)
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    questions     SurveyQuestion[]
+    responses     SurveyResponse[]
+
+    @@index([triggerType])
+    @@index([isActive])
+    @@index([createdAt])
+  }
+
+  model SurveyQuestion {
+    id         String   @id @default(cuid())
+    surveyId   String
+    type       String   // MCQ, TEXT, RATING, YES_NO, MULTIPLE_SELECT, NUMBER
+    question   String
+    options    String?  // JSON array for MCQ/MULTIPLE_SELECT: ["Option 1", "Option 2"]
+    isRequired Boolean  @default(true)
+    order      Int      @default(0)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    survey     Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+    responses  SurveyAnswer[]
+
+    @@index([surveyId])
+    @@index([order])
+  }
+
+  model SurveyResponse {
+    id          String   @id @default(cuid())
+    surveyId    String
+    userId      String
+    submittedAt DateTime @default(now())
+
+    survey      Survey   @relation(fields: [surveyId], references: [id])
+    user        User     @relation(fields: [userId], references: [id])
+    answers     SurveyAnswer[]
+
+    @@unique([surveyId, userId])
+    @@index([surveyId])
+    @@index([userId])
+    @@index([submittedAt])
+  }
+
+  model SurveyAnswer {
+     id          String   @id @default(cuid())
+     responseId  String
+     questionId  String
+     answer      String   // JSON string for structured answers ( MCQ selected option, rating number, etc.)
+     answerText  String?  // Plain text for open-ended answers
+     createdAt   DateTime @default(now())
+
+     response    SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+     question    SurveyQuestion @relation(fields: [questionId], references: [id])
+
+     @@unique([responseId, questionId])
+     @@index([responseId])
+   }
+
+// ==================== VOCABULARY MODELS ====================
+
+model VocabularySet {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  categoryId   String?
+  language     String   @default("en") // Language code (en, yo, ig, ha, fr, es, etc.)
+  difficulty   String   @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
+  level        String?  // CEFR level: A1, A2, B1, B2, C1, C2
+  isActive     Boolean  @default(true)
+  isPremium    Boolean  @default(false)
+  order        Int      @default(0)
+  xpReward     Int      @default(10)
+  gemReward    Int      @default(2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  words        VocabularyWord[]
+  progress     VocabularyProgress[]
+  
+  category     VocabularyCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([isActive])
+  @@index([language])
+  @@index([difficulty])
+  @@index([level])
+  @@index([categoryId])
+}
+
+model VocabularyCategory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  language    String   @default("en")
+  icon        String?
+  color       String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sets        VocabularySet[]
+
+  @@index([language])
+  @@index([isActive])
+}
+
+model VocabularyWord {
+  id              String   @id @default(cuid())
+  vocabularySetId String
+  word            String
+  definition      String   // English meaning (word only, not phrase)
+  translation    String?  // Native language translation for reference
+  partOfSpeech    String?  // noun, verb, adjective, etc.
+  pronunciation   String?  // Phonetic spelling
+  exampleSentence String?  // Example sentence
+  exampleTranslation String? // English translation of example
+  synonyms        String?  // JSON array of synonyms
+  antonyms        String?  // JSON array of antonyms
+  difficulty      String   @default("MEDIUM") // EASY, MEDIUM, HARD
+  languageCode   String?  // Language code: yo, ig, ha, sw, fr, en
+  audioUrl        String?  // Native speaker recording URL
+  ttsUrl         String?  // Text-to-Speech URL fallback
+  
+  // Activity-specific fields
+  scrambledWord  String?  // Pre-scrambled version for assembly activity
+  missingLetter   String?  // The missing letter for missing alphabet activity
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  vocabularySet   VocabularySet @relation(fields: [vocabularySetId], references: [id], onDelete: Cascade)
+
+  @@index([vocabularySetId])
+}
+
+model VocabularyProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  vocabularySetId  String
+  wordsCompleted   Int      @default(0)
+  correctCount     Int      @default(0)
+  totalAttempts    Int      @default(0)
+  bestStreak       Int      @default(0)
+  currentStreak    Int      @default(0)
+  lastPracticedAt  DateTime @default(now())
+  completed        Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User           @relation(fields: [userId], references: [id])
+  vocabularySet    VocabularySet  @relation(fields: [vocabularySetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vocabularySetId])
+  @@index([userId])
+  @@index([vocabularySetId])
+}
+
+// ==================== EMAIL VERIFICATION TOKEN MODEL ====================
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// ==================== GAME CENTER MODELS ====================
+
+model Game {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  type         String   // WORD_MATCH, MATH_CHALLENGE, MEMORY_FLIP, QUIZ_RACE, SPELLING_BEE, WORD_SCRAMBLE, ANAGRAMS, TYPING_RACE
+  difficulty   String   @default("EASY") // EASY, MEDIUM, HARD, EXPERT
+  courseId     String?  // Optional: link to course for content
+  icon         String?  // Lucide icon name
+  color        String?  @default("#6B7280")
+  xpReward     Int      @default(10)
+  gemReward    Int      @default(1)
+  timeLimit    Int?     // Seconds per game (null = no limit)
+  maxAttempts  Int?     // Daily attempts limit (null = unlimited)
+  isActive     Boolean  @default(true)
+  minLevel     Int      @default(1)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  scores GameScore[]
+
+  @@index([isActive])
+  @@index([type])
+  @@index([sortOrder])
+}
+
+model GameScore {
+  id          String   @id @default(cuid())
+  userId      String
+  gameId      String
+  score       Int
+  timeSpent   Int      // seconds
+  xpEarned    Int      @default(0)
+  gemsEarned  Int      @default(0)
+  completedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gameId])
+  @@index([score])
+}
+
+model GameCenterSettings {
+  id                     String   @id @default(cuid())
+  minLessonsCompleted    Int      @default(5)
+  minTimeSpentMinutes    Int      @default(30)
+  enablePremiumBypass   Boolean  @default(true)
+  dailyXpCap            Int      @default(100)
+  dailyGemCap           Int      @default(50)
+  updatedAt              DateTime @updatedAt
+}
