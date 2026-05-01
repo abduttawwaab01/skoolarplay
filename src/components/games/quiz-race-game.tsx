@@ -1,54 +1,72 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Clock, RotateCcw, Trophy, Zap } from 'lucide-react'
+import { Check, X, Clock, RotateCcw, Trophy, Zap, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { QUIZ_EASY, QUIZ_MEDIUM, QUIZ_HARD, QUIZ_EXPERT, QuizQuestion } from '@/lib/game-word-bank'
 
-interface QuizQuestion {
-  question: string
-  options: string[]
-  correctAnswer: number
-  hint?: string
+const POOLS: Record<string, QuizQuestion[]> = {
+  EASY: QUIZ_EASY,
+  MEDIUM: QUIZ_MEDIUM,
+  HARD: QUIZ_HARD,
+  EXPERT: QUIZ_EXPERT,
 }
 
-const EASY_QUESTIONS: QuizQuestion[] = [
-  { question: 'What is the capital of France?', options: ['London', 'Berlin', 'Paris', 'Madrid'], correctAnswer: 2, hint: 'City of Light' },
-  { question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Mars', 'Jupiter', 'Saturn'], correctAnswer: 1, hint: 'Named after Roman god of war' },
-  { question: 'What is H2O?', options: ['Oxygen', 'Hydrogen', 'Water', 'Salt'], correctAnswer: 2, hint: 'Essential for life' },
-  { question: 'How many continents are there?', options: ['5', '6', '7', '8'], correctAnswer: 2, hint: 'Includes Africa, Asia, Europe...' },
-  { question: 'What gas do plants absorb?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctAnswer: 2, hint: 'CO2' },
-]
+function getNextTierPool(difficulty: string, answered: number): QuizQuestion[] {
+  const tiers = ['EASY', 'MEDIUM', 'HARD', 'EXPERT']
+  const baseIdx = tiers.indexOf(difficulty)
+  const tierIdx = Math.min(baseIdx + Math.floor(answered / 20), tiers.length - 1)
+  return POOLS[tiers[tierIdx]] ?? QUIZ_EASY
+}
 
-export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
+function getRandomQuestions(pool: QuizQuestion[], count: number, excludeIds: Set<number>): QuizQuestion[] {
+  const available = pool.filter((_, idx) => !excludeIds.has(idx))
+  if (available.length === 0) return pool.sort(() => Math.random() - 0.5).slice(0, count)
+  const shuffled = [...available].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, Math.min(count, available.length))
+}
+
+export function QuizRaceGame({ onComplete, timeLimit = 90, difficulty }: {
   onComplete: (score: number, timeSpent: number) => void
   timeLimit?: number
   difficulty: string
 }) {
-  const questions = EASY_QUESTIONS
+  const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [currentQ, setCurrentQ] = useState(0)
   const [score, setScore] = useState(0)
+  const [answered, setAnswered] = useState(0)
+  const [wrong, setWrong] = useState(0)
   const [timeLeft, setTimeLeft] = useState(timeLimit)
   const [gameOver, setGameOver] = useState(false)
   const [feedback, setFeedback] = useState<{ correct: boolean; message: string } | null>(null)
   const [streak, setStreak] = useState(0)
+  const [bestStreak, setBestStreak] = useState(0)
+  const [usedIds, setUsedIds] = useState<Set<number>>(new Set())
+  const startTimeRef = useRef(Date.now())
+
+  const loadQuestions = useCallback((currentAnswered: number, currentUsedIds: Set<number>) => {
+    const pool = getNextTierPool(difficulty, currentAnswered)
+    const newQs = getRandomQuestions(pool, 5, currentUsedIds)
+    setQuestions(newQs)
+    setCurrentQ(0)
+  }, [difficulty])
+
+  useEffect(() => {
+    loadQuestions(0, new Set())
+  }, [loadQuestions])
 
   useEffect(() => {
     if (gameOver || timeLeft <= 0) return
-    if (currentQ >= questions.length) {
-      setGameOver(true)
-      onComplete(score, timeLimit - timeLeft)
-      return
-    }
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer)
           setGameOver(true)
-          onComplete(score, timeLimit - 1)
+          onComplete(score, Math.floor((Date.now() - startTimeRef.current) / 1000))
           return 0
         }
         return prev - 1
@@ -56,29 +74,59 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [gameOver, timeLeft, score, timeLimit, currentQ, onComplete])
+  }, [gameOver, timeLeft, score, timeLimit, onComplete])
 
   const handleAnswer = (idx: number) => {
     if (gameOver || feedback) return
 
     const q = questions[currentQ]
     if (idx === q.correctAnswer) {
-      const points = 10 + streak * 5
+      const difficultyMultiplier = difficulty === 'EXPERT' ? 3 : difficulty === 'HARD' ? 2 : difficulty === 'MEDIUM' ? 1.5 : 1
+      const streakBonus = Math.min(streak, 20)
+      const points = Math.round((10 + streakBonus * 3) * difficultyMultiplier)
       setScore(prev => prev + points)
-      setStreak(prev => prev + 1)
+      const newStreak = streak + 1
+      setStreak(newStreak)
+      if (newStreak > bestStreak) setBestStreak(newStreak)
       setFeedback({ correct: true, message: `+${points} points!` })
     } else {
       setStreak(0)
-      setFeedback({ correct: false, message: `Correct: ${q.options[q.correctAnswer]}` })
+      setWrong(prev => prev + 1)
+      setFeedback({ correct: false, message: `Answer: ${q.options[q.correctAnswer]}` })
     }
+
+    const newAnswered = answered + 1
+    setAnswered(newAnswered)
+    setUsedIds(prev => new Set([...prev, ...questions.map((_, i) => i)]))
 
     setTimeout(() => {
       setFeedback(null)
-      setCurrentQ(prev => prev + 1)
-    }, 1500)
+      const nextQ = currentQ + 1
+      if (nextQ >= questions.length) {
+        loadQuestions(newAnswered, new Set([...usedIds, ...questions.map((_, i) => i)]))
+      } else {
+        setCurrentQ(nextQ)
+      }
+    }, 1200)
   }
 
-  const progress = (currentQ / questions.length) * 100
+  const restart = () => {
+    setScore(0)
+    setAnswered(0)
+    setWrong(0)
+    setCurrentQ(0)
+    setTimeLeft(timeLimit)
+    setGameOver(false)
+    setStreak(0)
+    setBestStreak(0)
+    setFeedback(null)
+    setUsedIds(new Set())
+    startTimeRef.current = Date.now()
+    loadQuestions(0, new Set())
+  }
+
+  const progress = Math.min((answered / 50) * 100, 100)
+  const accuracy = answered > 0 ? Math.round(((answered - wrong) / answered) * 100) : 100
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -91,6 +139,10 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
             <Zap className="w-3 h-3 text-amber-500" />
             Streak: <span className="text-amber-600 font-bold">{streak}</span>
           </div>
+          <div className="text-sm font-medium flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-blue-500" />
+            Answered: <span className="text-green-600 font-bold">{answered}</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-muted-foreground" />
@@ -100,8 +152,12 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
         </div>
       </div>
 
+      <div className="flex justify-between text-xs text-muted-foreground mb-2">
+        <span>Accuracy: {accuracy}%</span>
+        <span>Best Streak: {bestStreak}</span>
+      </div>
+
       <Progress value={progress} className="mb-6 h-2" />
-      <p className="text-center text-sm text-muted-foreground mb-4">Question {currentQ + 1}/{questions.length}</p>
 
       <AnimatePresence>
         {feedback && (
@@ -126,15 +182,15 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
         <Card>
           <CardContent className="p-8 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-amber-500" />
-            <h2 className="text-2xl font-bold mb-2">Game Over!</h2>
-            <p className="text-muted-foreground mb-6">You scored {score} points</p>
-            <Button onClick={() => {
-              setScore(0)
-              setCurrentQ(0)
-              setTimeLeft(timeLimit)
-              setGameOver(false)
-              setStreak(0)
-            }}>
+            <h2 className="text-2xl font-bold mb-2">Time's Up!</h2>
+            <div className="space-y-2 mb-6">
+              <p className="text-muted-foreground">Answered: <span className="font-bold text-green-600">{answered}</span></p>
+              <p className="text-muted-foreground">Wrong: <span className="font-bold text-red-600">{wrong}</span></p>
+              <p className="text-muted-foreground">Accuracy: <span className="font-bold">{accuracy}%</span></p>
+              <p className="text-muted-foreground">Best Streak: <span className="font-bold text-amber-600">{bestStreak}</span></p>
+              <p className="text-2xl font-bold text-primary mt-4">Score: {score}</p>
+            </div>
+            <Button onClick={restart}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Play Again
             </Button>
@@ -143,9 +199,9 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
       ) : (
         <Card>
           <CardContent className="p-8">
-            <h2 className="text-2xl font-bold text-center mb-8">{questions[currentQ].question}</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">{questions[currentQ]?.question}</h2>
             <div className="grid grid-cols-1 gap-3">
-              {questions[currentQ].options.map((option, idx) => (
+              {questions[currentQ]?.options.map((option, idx) => (
                 <motion.div
                   key={idx}
                   whileHover={{ scale: 1.02 }}
@@ -162,11 +218,6 @@ export function QuizRaceGame({ onComplete, timeLimit = 60, difficulty }: {
                 </motion.div>
               ))}
             </div>
-            {questions[currentQ].hint && (
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                Hint: {questions[currentQ].hint}
-              </p>
-            )}
           </CardContent>
         </Card>
       )}

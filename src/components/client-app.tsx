@@ -105,6 +105,8 @@ const AdminVocabularyPage = dynamic(() => import('@/components/pages/admin/vocab
 const AdminVideoQuizPage = dynamic(() => import('@/components/pages/admin/video-quiz-page').then(mod => mod.AdminVideoQuizPage))
 const AdminProfilePage = dynamic(() => import('@/components/pages/admin/profile-page').then(mod => mod.AdminProfilePage))
 const AdminStudyPathsPage = dynamic(() => import('@/components/pages/admin/study-paths-page').then(mod => mod.AdminStudyPathsPage))
+const AdminGameCenterSettingsPage = dynamic(() => import('@/components/pages/admin/game-center-settings-page').then(mod => mod.AdminGameCenterSettingsPage))
+const AdminGamesPage = dynamic(() => import('@/components/pages/admin/games-page').then(mod => mod.AdminGamesPage))
 
 // Loading components
 import { LoadingScreen } from '@/components/shared/loading-screen'
@@ -271,6 +273,7 @@ export default function ClientApp() {
       case 'admin-boss-battles': return <AdminBossBattlesPage />
       case 'admin-exams': return <AdminExamsPage />
       case 'admin-games': return <AdminGamesPage />
+      case 'admin-game-settings': return <AdminGameCenterSettingsPage />
       case 'admin-teacher-apps': return <AdminTeacherAppsPage />
       case 'admin-teacher-payouts': return <AdminTeacherPayoutsPage />
       case 'admin-audit-logs': return <AdminAuditLogsPage />

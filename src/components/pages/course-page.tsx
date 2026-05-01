@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -220,6 +220,7 @@ function ModuleNode({
                 const LessonIcon = lessonTypeIcon[lesson.type] || HelpCircle
                 const lessonIsPremiumLocked = lesson.isPremium && !userIsPremium
                 const isReview = lesson.type === 'REVIEW'
+                const lessonIsLocked = lesson.isLocked || lessonIsPremiumLocked
                 
                 return (
                   <motion.button
@@ -583,7 +584,7 @@ export function CoursePage() {
           <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 md:p-8">
             <div className="flex flex-col md:flex-row md:items-start gap-4">
               <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-3xl shrink-0">
-                {course.icon || '📚'}
+                {course.icon || 'ðŸ“š'}
               </div>
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -730,3 +731,5 @@ export function CoursePage() {
     </div>
   )
 }
+
+

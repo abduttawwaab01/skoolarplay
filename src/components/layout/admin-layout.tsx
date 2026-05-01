@@ -45,6 +45,7 @@ import {
   Gem,
   Gift,
   CreditCard,
+  Gamepad2,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -97,9 +98,11 @@ const navItems = [
    { icon: TrendingUp, label: 'Donations', page: 'admin-donations' as PageName },
    { icon: CreditCard, label: 'Donation Settings', page: 'admin-donation-settings' as PageName },
    { icon: HeadphonesIcon, label: 'Support Agents', page: 'admin-support-agents' as PageName },
-   { icon: ClipboardCheck, label: 'Surveys', page: 'admin-surveys' as PageName },
+  { icon: ClipboardCheck, label: 'Surveys', page: 'admin-surveys' as PageName },
    { icon: FileText, label: 'Feed', page: 'admin-feed' as PageName },
    { icon: Users, label: 'Groups', page: 'admin-groups' as PageName },
+   { icon: Gamepad2, label: 'Games', page: 'admin-games' as PageName },
+   { icon: Settings, label: 'Game Center', page: 'admin-game-settings' as PageName },
    { icon: AlertTriangle, label: 'Danger Zone', page: 'admin-danger-zone' as PageName },
   ]
 
@@ -138,6 +141,8 @@ const navItems = [
     'admin-video-quiz': 'Video Quiz Management',
     'admin-vocabulary': 'Vocabulary Management',
     'admin-danger-zone': 'Danger Zone',
+    'admin-games': 'Game Management',
+    'admin-game-settings': 'Game Center Settings',
    }
 
 function SidebarContent({

@@ -15,6 +15,7 @@ import {
   Timer,
   Target,
   BookOpen,
+  Play,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +26,14 @@ import { useAuthStore } from '@/store/auth-store'
 import { useAppStore } from '@/store/app-store'
 import { isFeatureUnlocked } from '@/lib/premium'
 import { toast } from 'sonner'
+import { WordMatchGame } from '@/components/games/word-match-game'
+import { MathChallengeGame } from '@/components/games/math-challenge-game'
+import { TypingRaceGame } from '@/components/games/typing-race-game'
+import { WordScrambleGame } from '@/components/games/word-scramble-game'
+import { MemoryFlipGame } from '@/components/games/memory-flip-game'
+import { QuizRaceGame } from '@/components/games/quiz-race-game'
+import { SpellingBeeGame } from '@/components/games/spelling-bee-game'
+import { AnagramsGame } from '@/components/games/anagrams-game'
 
 interface Game {
   id: string
@@ -179,6 +188,20 @@ export function GameCenterPage() {
         )}
         {selectedGame.type === 'ANAGRAMS' && (
           <AnagramsGame
+            onComplete={handleGameComplete}
+            timeLimit={selectedGame.timeLimit || undefined}
+            difficulty={selectedGame.difficulty}
+          />
+        )}
+        {selectedGame.type === 'QUIZ_RACE' && (
+          <QuizRaceGame
+            onComplete={handleGameComplete}
+            timeLimit={selectedGame.timeLimit || undefined}
+            difficulty={selectedGame.difficulty}
+          />
+        )}
+        {selectedGame.type === 'SPELLING_BEE' && (
+          <SpellingBeeGame
             onComplete={handleGameComplete}
             timeLimit={selectedGame.timeLimit || undefined}
             difficulty={selectedGame.difficulty}
@@ -376,14 +399,3 @@ export function GameCenterPage() {
     </motion.div>
   )
 }
-
-// Import game components at the top after other imports
-import { WordMatchGame } from '@/components/games/word-match-game'
-import { MathChallengeGame } from '@/components/games/math-challenge-game'
-import { TypingRaceGame } from '@/components/games/typing-race-game'
-import { WordScrambleGame } from '@/components/games/word-scramble-game'
-import { MemoryFlipGame } from '@/components/games/memory-flip-game'
-import { QuizRaceGame } from '@/components/games/quiz-race-game'
-import { SpellingBeeGame } from '@/components/games/spelling-bee-game'
-import { AnagramsGame } from '@/components/games/anagrams-game'
-import { Play } from 'lucide-react'
