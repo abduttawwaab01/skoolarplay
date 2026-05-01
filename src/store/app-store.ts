@@ -87,17 +87,20 @@ export type PageName =
    | "admin-feed"
    | "admin-groups"
    | "admin-volunteers"
-   | "admin-lesson-notes"
-   | "lesson-note"
-   | "vocabulary"
-   | "vocabulary-practice"
-   | "admin-subscription-tiers"
-   | "admin-feature-tiers"
-   | "admin-gift-codes"
-   | "subscription"
-   | "upgrade"
-   | "gem-history"
-   | "verify-email";
+  | "admin-lesson-notes"
+  | "lesson-note"
+  | "vocabulary"
+  | "vocabulary-practice"
+  | "admin-subscription-tiers"
+  | "admin-feature-tiers"
+  | "admin-gift-codes"
+  | "subscription"
+  | "upgrade"
+  | "gem-history"
+  | "game-center"
+  | "admin-games"
+  | "admin-game-settings"
+  | "verify-email";
 
 interface AppState {
   currentPage: PageName;

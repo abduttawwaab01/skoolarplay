@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Clock, RotateCcw, Trophy, Zap } from 'lucide-react'
+import { Check, X, Clock, RotateCcw, Trophy, Zap, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -19,81 +19,102 @@ interface MathProblem {
   options: number[]
 }
 
-function generateProblem(difficulty: string): MathProblem {
-  let num1: number, num2: number, operation: string, answer: number
+function generateProblem(difficulty: string, solvedCount: number): MathProblem {
+  let num1: number, num2: number, num3: number, operation: string, answer: number
+
+  const tier = Math.floor(solvedCount / 10)
+  const progressFactor = 1 + (solvedCount * 0.08)
 
   if (difficulty === 'EASY') {
-    num1 = Math.floor(Math.random() * 20) + 1
-    num2 = Math.floor(Math.random() * 20) + 1
-    operation = ['+', '-'][Math.floor(Math.random() * 2)]
+    const maxNum = 20 + tier * 5
+    num1 = Math.floor(Math.random() * maxNum) + 1
+    num2 = Math.floor(Math.random() * maxNum) + 1
+    operation = tier >= 2 ? ['+', '-'][Math.floor(Math.random() * 2)] : ['+', '-'][Math.floor(Math.random() * 2)]
   } else if (difficulty === 'MEDIUM') {
-    num1 = Math.floor(Math.random() * 50) + 10
-    num2 = Math.floor(Math.random() * 50) + 10
-    operation = ['+', '-', '*'][Math.floor(Math.random() * 3)]
+    const maxNum = 50 + tier * 20
+    num1 = Math.floor(Math.random() * maxNum) + 10
+    num2 = Math.floor(Math.random() * maxNum) + 10
+    const ops = tier >= 3 ? ['+', '-', '*'] : ['+', '-', '*']
+    operation = ops[Math.floor(Math.random() * ops.length)]
+  } else if (difficulty === 'HARD') {
+    const maxNum = 100 + tier * 50
+    num1 = Math.floor(Math.random() * maxNum) + 50
+    num2 = Math.floor(Math.random() * maxNum) + 50
+    const ops = tier >= 2 ? ['+', '-', '*', '/'] : ['+', '-', '*', '/']
+    operation = ops[Math.floor(Math.random() * ops.length)]
   } else {
-    num1 = Math.floor(Math.random() * 100) + 50
-    num2 = Math.floor(Math.random() * 100) + 50
-    operation = ['+', '-', '*', '/'][Math.floor(Math.random() * 4)]
+    const maxNum = 200 + tier * 100
+    num1 = Math.floor(Math.random() * maxNum) + 100
+    num2 = Math.floor(Math.random() * maxNum) + 100
+    const ops = tier >= 3 ? ['+', '-', '*', '/', '%'] : ['+', '-', '*', '/', '%']
+    operation = ops[Math.floor(Math.random() * ops.length)]
   }
 
   switch (operation) {
     case '+': answer = num1 + num2; break
     case '-': answer = num1 - num2; break
-    case '*': answer = num1 * num2; break
+    case '*':
+      const maxMul = difficulty === 'MEDIUM' ? 15 + tier * 3 : difficulty === 'HARD' ? 25 + tier * 5 : 30 + tier * 5
+      num1 = Math.floor(Math.random() * maxMul) + 2
+      num2 = Math.floor(Math.random() * maxMul) + 2
+      answer = num1 * num2
+      break
     case '/':
-      while (num2 === 0 || num1 % num2 !== 0) {
-        num1 = Math.floor(Math.random() * 100) + 50
-        num2 = Math.floor(Math.random() * 12) + 2
-      }
-      answer = num1 / num2
+      num2 = Math.floor(Math.random() * (12 + tier * 3)) + 2
+      answer = Math.floor(Math.random() * (20 + tier * 5)) + 2
+      num1 = num2 * answer
+      break
+    case '%':
+      num2 = Math.floor(Math.random() * (15 + tier * 5)) + 3
+      num1 = Math.floor(Math.random() * (200 + tier * 100)) + 100
+      answer = num1 % num2
       break
     default: answer = num1 + num2
   }
 
   const options = [answer]
   while (options.length < 4) {
-    const wrong = answer + Math.floor(Math.random() * 20) - 10
+    const spread = Math.max(10, Math.abs(answer) * 0.3)
+    const wrong = answer + Math.floor(Math.random() * spread * 2) - Math.floor(spread)
     if (!options.includes(wrong) && wrong !== answer) {
       options.push(wrong)
     }
   }
 
-  const question = difficulty === 'HARD' && operation === '/'
-    ? `${num1} ÷ ${num2} = ?`
-    : `${num1} ${operation} ${num2} = ?`
-
-  return {
-    question,
-    answer,
-    options: options.sort(() => Math.random() - 0.5),
+  let question: string
+  switch (operation) {
+    case '+': question = `${num1} + ${num2} = ?`; break
+    case '-': question = `${num1} - ${num2} = ?`; break
+    case '*': question = `${num1} × ${num2} = ?`; break
+    case '/': question = `${num1} ÷ ${num2} = ?`; break
+    case '%': question = `${num1} % ${num2} = ?`; break
+    default: question = `${num1} + ${num2} = ?`
   }
+
+  return { question, answer, options: options.sort(() => Math.random() - 0.5) }
 }
 
 export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: MathChallengeGameProps) {
-  const [currentProblem, setCurrentProblem] = useState<MathProblem>(generateProblem(difficulty))
+  const [currentProblem, setCurrentProblem] = useState<MathProblem>(() => generateProblem(difficulty, 0))
   const [score, setScore] = useState(0)
-  const [questionNum, setQuestionNum] = useState(0)
+  const [solved, setSolved] = useState(0)
+  const [wrong, setWrong] = useState(0)
   const [timeLeft, setTimeLeft] = useState(timeLimit)
   const [gameOver, setGameOver] = useState(false)
-  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
+  const [feedback, setFeedback] = useState<{ correct: boolean; answer?: number } | null>(null)
   const [streak, setStreak] = useState(0)
-
-  const TOTAL_QUESTIONS = 10
+  const [bestStreak, setBestStreak] = useState(0)
+  const startTimeRef = useRef(Date.now())
 
   useEffect(() => {
     if (gameOver || timeLeft <= 0) return
-    if (questionNum >= TOTAL_QUESTIONS) {
-      setGameOver(true)
-      onComplete(score, timeLimit - timeLeft)
-      return
-    }
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer)
           setGameOver(true)
-          onComplete(score, timeLimit - 1)
+          onComplete(score, Math.floor((Date.now() - startTimeRef.current) / 1000))
           return 0
         }
         return prev - 1
@@ -101,29 +122,49 @@ export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: M
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [gameOver, timeLeft, score, timeLimit, questionNum, onComplete])
+  }, [gameOver, timeLeft, score, timeLimit, onComplete])
 
   const handleAnswer = (selected: number) => {
-    if (gameOver) return
+    if (gameOver || feedback) return
 
     if (selected === currentProblem.answer) {
-      const points = 10 + streak * 2
+      const difficultyMultiplier = difficulty === 'EXPERT' ? 3 : difficulty === 'HARD' ? 2 : difficulty === 'MEDIUM' ? 1.5 : 1
+      const streakBonus = Math.min(streak, 20)
+      const points = Math.round((10 + streakBonus * 3) * difficultyMultiplier)
       setScore(prev => prev + points)
-      setStreak(prev => prev + 1)
-      setFeedback('correct')
+      setSolved(prev => prev + 1)
+      const newStreak = streak + 1
+      setStreak(newStreak)
+      if (newStreak > bestStreak) setBestStreak(newStreak)
+      setFeedback({ correct: true })
     } else {
       setStreak(0)
-      setFeedback('wrong')
+      setWrong(prev => prev + 1)
+      setFeedback({ correct: false, answer: currentProblem.answer })
     }
 
     setTimeout(() => {
       setFeedback(null)
-      setQuestionNum(prev => prev + 1)
-      setCurrentProblem(generateProblem(difficulty))
-    }, 1000)
+      const next = solved + 1
+      setCurrentProblem(generateProblem(difficulty, next))
+    }, 800)
   }
 
-  const progress = (questionNum / TOTAL_QUESTIONS) * 100
+  const restart = () => {
+    setScore(0)
+    setSolved(0)
+    setWrong(0)
+    setTimeLeft(timeLimit)
+    setGameOver(false)
+    setCurrentProblem(generateProblem(difficulty, 0))
+    setStreak(0)
+    setBestStreak(0)
+    setFeedback(null)
+    startTimeRef.current = Date.now()
+  }
+
+  const tier = Math.floor(solved / 10)
+  const accuracy = solved + wrong > 0 ? Math.round((solved / (solved + wrong)) * 100) : 100
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -136,6 +177,10 @@ export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: M
             <Zap className="w-3 h-3 text-amber-500" />
             Streak: <span className="text-amber-600 font-bold">{streak}</span>
           </div>
+          <div className="text-sm font-medium flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-blue-500" />
+            Tier {tier + 1}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-muted-foreground" />
@@ -145,8 +190,11 @@ export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: M
         </div>
       </div>
 
-      <Progress value={progress} className="mb-6 h-2" />
-      <p className="text-center text-sm text-muted-foreground mb-4">Question {questionNum + 1}/{TOTAL_QUESTIONS}</p>
+      <div className="flex justify-between text-xs text-muted-foreground mb-2">
+        <span>Solved: {solved}</span>
+        <span>Accuracy: {accuracy}%</span>
+        <span>Best Streak: {bestStreak}</span>
+      </div>
 
       <AnimatePresence>
         {feedback && (
@@ -155,13 +203,13 @@ export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: M
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             className={`mb-4 p-3 rounded-lg text-center font-medium ${
-              feedback === 'correct' ? 'bg-green-500/10 text-green-700' : 'bg-red-500/10 text-red-700'
+              feedback.correct ? 'bg-green-500/10 text-green-700' : 'bg-red-500/10 text-red-700'
             }`}
           >
-            {feedback === 'correct' ? (
-              <><Check className="w-4 h-4 inline mr-2" />Correct! +{10 + streak * 2} points</>
+            {feedback.correct ? (
+              <><Check className="w-4 h-4 inline mr-2" />Correct!</>
             ) : (
-              <><X className="w-4 h-4 inline mr-2" />Wrong! The answer was {currentProblem.answer}</>
+              <><X className="w-4 h-4 inline mr-2" />Wrong! Answer: {feedback.answer}</>
             )}
           </motion.div>
         )}
@@ -171,16 +219,15 @@ export function MathChallengeGame({ onComplete, timeLimit = 120, difficulty }: M
         <Card>
           <CardContent className="p-8 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-amber-500" />
-            <h2 className="text-2xl font-bold mb-2">Game Over!</h2>
-            <p className="text-muted-foreground mb-6">You scored {score} points</p>
-            <Button onClick={() => {
-              setScore(0)
-              setQuestionNum(0)
-              setTimeLeft(timeLimit)
-              setGameOver(false)
-              setCurrentProblem(generateProblem(difficulty))
-              setStreak(0)
-            }}>
+            <h2 className="text-2xl font-bold mb-2">Time's Up!</h2>
+            <div className="space-y-2 mb-6">
+              <p className="text-muted-foreground">Solved: <span className="font-bold text-green-600">{solved}</span></p>
+              <p className="text-muted-foreground">Wrong: <span className="font-bold text-red-600">{wrong}</span></p>
+              <p className="text-muted-foreground">Accuracy: <span className="font-bold">{accuracy}%</span></p>
+              <p className="text-muted-foreground">Best Streak: <span className="font-bold text-amber-600">{bestStreak}</span></p>
+              <p className="text-2xl font-bold text-primary mt-4">Score: {score}</p>
+            </div>
+            <Button onClick={restart}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Play Again
             </Button>

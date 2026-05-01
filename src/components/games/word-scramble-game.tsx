@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Clock, RotateCcw, Trophy, Lightbulb } from 'lucide-react'
+import { Check, X, Clock, RotateCcw, Trophy, Lightbulb, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { toast } from 'sonner'
+import { SPELLING_EASY, SPELLING_MEDIUM, SPELLING_HARD, SPELLING_EXPERT } from '@/lib/game-word-bank'
 
 interface WordScrambleGameProps {
   onComplete: (score: number, timeSpent: number) => void
@@ -13,77 +15,84 @@ interface WordScrambleGameProps {
   difficulty: string
 }
 
-const EASY_WORDS = [
-  { word: 'APPLE', hint: 'A fruit' },
-  { word: 'HOUSE', hint: 'A place to live' },
-  { word: 'BOOK', hint: 'You read it' },
-  { word: 'WATER', hint: 'Essential for life' },
-  { word: 'SUN', hint: 'Bright star in our sky' },
-  { word: 'TREE', hint: 'Has leaves and branches' },
-  { word: 'FRIEND', hint: 'Someone you trust' },
-  { word: 'SCHOOL', hint: 'Place for learning' },
-]
+interface WordWithHint {
+  word: string
+  hint: string
+}
 
-const MEDIUM_WORDS = [
-  { word: 'COMPUTER', hint: 'Electronic device for processing data' },
-  { word: 'HELICOPTER', hint: 'Aircraft with rotating wings' },
-  { word: 'UNIVERSE', hint: 'All of space and time' },
-  { word: 'MOUNTAIN', hint: 'Very tall landform' },
-  { word: 'ELEPHANT', hint: 'Large gray animal with trunk' },
-  { word: 'BUTTERFLY', hint: 'Insect with colorful wings' },
-  { word: 'ADVENTURE', hint: 'Exciting or unusual experience' },
-  { word: 'KITCHEN', hint: 'Room where food is cooked' },
-]
+const POOLS: Record<string, WordWithHint[]> = {
+  EASY: SPELLING_EASY,
+  MEDIUM: SPELLING_MEDIUM,
+  HARD: SPELLING_HARD,
+  EXPERT: SPELLING_EXPERT,
+}
+
+function getNextTierPool(difficulty: string, solved: number): WordWithHint[] {
+  const tiers = ['EASY', 'MEDIUM', 'HARD', 'EXPERT']
+  const baseIdx = tiers.indexOf(difficulty)
+  const tierIdx = Math.min(baseIdx + Math.floor(solved / 15), tiers.length - 1)
+  return POOLS[tiers[tierIdx]] ?? SPELLING_EASY
+}
+
+function getRandomWord(pool: WordWithHint[], exclude?: string): WordWithHint {
+  const available = exclude ? pool.filter(w => w.word !== exclude) : pool
+  return available[Math.floor(Math.random() * available.length)]
+}
 
 function scrambleWord(word: string): string {
   const letters = word.split('')
   let scrambled = word
-  while (scrambled === word) {
-    scrambled = letters.sort(() => Math.random() - 0.5).join('')
+  let attempts = 0
+  while (scrambled === word && attempts < 100) {
+    for (let i = letters.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[letters[i], letters[j]] = [letters[j], letters[i]]
+    }
+    scrambled = letters.join('')
+    attempts++
   }
   return scrambled
 }
 
 export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: WordScrambleGameProps) {
-  const words = difficulty === 'HARD' ? MEDIUM_WORDS : EASY_WORDS
-  const [currentWord, setCurrentWord] = useState<typeof EASY_WORDS[0] | null>(null)
+  const [currentWord, setCurrentWord] = useState<WordWithHint | null>(null)
   const [scrambled, setScrambled] = useState('')
   const [input, setInput] = useState('')
   const [score, setScore] = useState(0)
   const [solved, setSolved] = useState(0)
+  const [wrong, setWrong] = useState(0)
   const [timeLeft, setTimeLeft] = useState(timeLimit)
   const [gameOver, setGameOver] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null)
+  const [streak, setStreak] = useState(0)
+  const [bestStreak, setBestStreak] = useState(0)
+  const [hintUsed, setHintUsed] = useState(false)
+  const startTimeRef = useRef(Date.now())
 
-  const TOTAL = 8
-
-  const pickWord = () => {
-    const word = words[Math.floor(Math.random() * words.length)]
+  const pickWord = useCallback((currentSolved: number, prevWord?: string) => {
+    const pool = getNextTierPool(difficulty, currentSolved)
+    const word = getRandomWord(pool, prevWord)
     setCurrentWord(word)
     setScrambled(scrambleWord(word.word))
     setInput('')
     setShowHint(false)
-  }
+    setHintUsed(false)
+  }, [difficulty])
 
   useEffect(() => {
-    pickWord()
-  }, [])
+    pickWord(0)
+  }, [pickWord])
 
   useEffect(() => {
     if (gameOver || timeLeft <= 0) return
-    if (solved >= TOTAL) {
-      setGameOver(true)
-      onComplete(score, timeLimit - timeLeft)
-      return
-    }
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timer)
           setGameOver(true)
-          onComplete(score, timeLimit - 1)
+          onComplete(score, Math.floor((Date.now() - startTimeRef.current) / 1000))
           return 0
         }
         return prev - 1
@@ -91,28 +100,53 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [gameOver, timeLeft, score, timeLimit, solved, onComplete])
+  }, [gameOver, timeLeft, score, timeLimit, onComplete])
 
   const handleSubmit = () => {
-    if (!currentWord || gameOver) return
+    if (!currentWord || gameOver || feedback) return
 
     if (input.toUpperCase() === currentWord.word) {
-      const points = 15
-      setScore(prev => prev + points)
-      setSolved(prev => prev + 1)
+      const difficultyMultiplier = difficulty === 'EXPERT' ? 4 : difficulty === 'HARD' ? 2.5 : difficulty === 'MEDIUM' ? 1.5 : 1
+      const streakBonus = Math.min(streak, 15)
+      const hintPenalty = hintUsed ? 0.5 : 1
+      const points = Math.round(15 * difficultyMultiplier * (1 + streakBonus * 0.1) * hintPenalty)
+      setScore(prev => prev + Math.max(5, points))
+      const newSolved = solved + 1
+      setSolved(newSolved)
+      const newStreak = streak + 1
+      setStreak(newStreak)
+      if (newStreak > bestStreak) setBestStreak(newStreak)
       setFeedback('correct')
+      toast.success(`+${Math.max(5, points)} points`)
       setTimeout(() => {
         setFeedback(null)
-        pickWord()
-      }, 800)
+        pickWord(newSolved, currentWord.word)
+      }, 600)
     } else {
+      setStreak(0)
+      setWrong(prev => prev + 1)
       setFeedback('wrong')
-      setTimeout(() => setFeedback(null), 800)
+      setTimeout(() => {
+        setFeedback(null)
+        setInput('')
+      }, 600)
     }
-    setInput('')
   }
 
-  const progress = (solved / TOTAL) * 100
+  const restart = () => {
+    setScore(0)
+    setSolved(0)
+    setWrong(0)
+    setTimeLeft(timeLimit)
+    setGameOver(false)
+    setStreak(0)
+    setBestStreak(0)
+    setFeedback(null)
+    startTimeRef.current = Date.now()
+    pickWord(0)
+  }
+
+  const accuracy = solved + wrong > 0 ? Math.round((solved / (solved + wrong)) * 100) : 100
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -121,8 +155,9 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
           <div className="text-sm font-medium">
             Score: <span className="text-primary font-bold">{score}</span>
           </div>
-          <div className="text-sm font-medium">
-            Solved: <span className="text-green-600 font-bold">{solved}/{TOTAL}</span>
+          <div className="text-sm font-medium flex items-center gap-1">
+            <TrendingUp className="w-3 h-3 text-blue-500" />
+            Solved: <span className="text-green-600 font-bold">{solved}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -133,7 +168,12 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
         </div>
       </div>
 
-      <Progress value={progress} className="mb-6 h-2" />
+      <div className="flex justify-between text-xs text-muted-foreground mb-2">
+        <span>Accuracy: {accuracy}%</span>
+        <span>Best Streak: {bestStreak}</span>
+      </div>
+
+      <Progress value={Math.min((solved / 50) * 100, 100)} className="mb-6 h-2" />
 
       <AnimatePresence>
         {feedback && (
@@ -146,7 +186,7 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
             }`}
           >
             {feedback === 'correct' ? (
-              <><Check className="w-4 h-4 inline mr-2" />Correct! +15 points</>
+              <><Check className="w-4 h-4 inline mr-2" />Correct!</>
             ) : (
               <><X className="w-4 h-4 inline mr-2" />Wrong! Try again</>
             )}
@@ -158,15 +198,15 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
         <Card>
           <CardContent className="p-8 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-amber-500" />
-            <h2 className="text-2xl font-bold mb-2">Game Over!</h2>
-            <p className="text-muted-foreground mb-6">You solved {solved} words</p>
-            <Button onClick={() => {
-              setScore(0)
-              setSolved(0)
-              setTimeLeft(timeLimit)
-              setGameOver(false)
-              pickWord()
-            }}>
+            <h2 className="text-2xl font-bold mb-2">Time's Up!</h2>
+            <div className="space-y-2 mb-6">
+              <p className="text-muted-foreground">Solved: <span className="font-bold text-green-600">{solved}</span></p>
+              <p className="text-muted-foreground">Wrong attempts: <span className="font-bold text-red-600">{wrong}</span></p>
+              <p className="text-muted-foreground">Accuracy: <span className="font-bold">{accuracy}%</span></p>
+              <p className="text-muted-foreground">Best Streak: <span className="font-bold text-amber-600">{bestStreak}</span></p>
+              <p className="text-2xl font-bold text-primary mt-4">Score: {score}</p>
+            </div>
+            <Button onClick={restart}>
               <RotateCcw className="w-4 h-4 mr-2" />
               Play Again
             </Button>
@@ -217,7 +257,7 @@ export function WordScrambleGame({ onComplete, timeLimit = 120, difficulty }: Wo
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowHint(true)}
+                onClick={() => { setShowHint(true); setHintUsed(true) }}
                 disabled={showHint}
               >
                 <Lightbulb className="w-3 h-3 mr-1" />
