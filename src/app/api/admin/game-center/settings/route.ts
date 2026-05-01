@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { verifyAdmin } from '@/lib/admin-auth'
+import { getAdminUser } from '@/lib/admin-auth'
 
 const GAME_TYPES = [
   'WORD_MATCH', 'MATH_CHALLENGE', 'TYPING_RACE', 'WORD_SCRAMBLE',
@@ -9,7 +9,7 @@ const GAME_TYPES = [
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await verifyAdmin(req)
+    const admin = await getAdminUser()
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const admin = await verifyAdmin(req)
+    const admin = await getAdminUser()
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
