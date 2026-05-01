@@ -11,7 +11,7 @@ const protectedPages = ['dashboard', 'course', 'profile', 'lesson', 'shop', 'lea
   'referral', 'share-gems', 'messages', 'feed', 'surveys', 'gem-history',
   'game-center', 'game-play']
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Check if this is a protected API route
