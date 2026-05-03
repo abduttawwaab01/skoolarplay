@@ -89,12 +89,15 @@ export function AdminQuestionsPage() {
   const [quickCreateExpanded, setQuickCreateExpanded] = useState(false)
 
   const fetchQuestions = useCallback(async () => {
+    if (!filterLesson) {
+      setQuestions([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (filterCourse) params.set('courseId', filterCourse)
-      if (filterModule) params.set('moduleId', filterModule)
-      if (filterLesson) params.set('lessonId', filterLesson)
+      params.set('lessonId', filterLesson)
 
       const res = await fetch(`/api/admin/questions?${params}`)
       if (res.ok) {
@@ -106,7 +109,7 @@ export function AdminQuestionsPage() {
     } finally {
       setLoading(false)
     }
-  }, [filterCourse, filterModule, filterLesson])
+  }, [filterLesson])
 
   useEffect(() => {
     // Fetch courses for filter
@@ -147,11 +150,17 @@ export function AdminQuestionsPage() {
     }
   }, [filterModule])
 
-  useEffect(() => {
-    fetchQuestions()
-  }, [fetchQuestions])
+  const handleLoadQuestions = () => {
+    if (filterLesson) {
+      fetchQuestions()
+    }
+  }
 
   const openNewQuestion = () => {
+    if (!filterLesson) {
+      toast.error('Please select a lesson from the filters above first')
+      return
+    }
     setEditingQuestion(null)
     setFormLessonId(filterLesson || '')
     setFormType('MCQ')
@@ -460,6 +469,9 @@ export function AdminQuestionsPage() {
                 {lessons.map(l => <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button onClick={handleLoadQuestions} disabled={!filterLesson} className="whitespace-nowrap">
+              Load Questions
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -503,7 +515,7 @@ export function AdminQuestionsPage() {
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button onClick={openNewQuestion} className="gap-2">
+        <Button onClick={openNewQuestion} disabled={!filterLesson} className="gap-2">
           <Plus className="w-4 h-4" />
           Add Question
         </Button>
@@ -516,7 +528,7 @@ export function AdminQuestionsPage() {
       {/* Questions Table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Questions ({questions.length})</CardTitle>
+          <CardTitle className="text-base">{filterLesson ? `Questions (${questions.length})` : 'Questions'}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
@@ -539,7 +551,7 @@ export function AdminQuestionsPage() {
                 ) : questions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No questions found
+                      {!filterLesson ? 'Select a lesson above to view questions' : 'No questions found for this lesson'}
                     </TableCell>
                   </TableRow>
                 ) : (

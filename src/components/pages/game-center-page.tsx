@@ -94,7 +94,7 @@ export function GameCenterPage() {
   const hasPremiumAccess = user ? isFeatureUnlocked(
     user.isPremium,
     user.premiumExpiresAt,
-    JSON.parse(user.unlockedFeatures || '[]'),
+    user.unlockedFeatures || [],
     'GAME_CENTER'
   ) : false
 

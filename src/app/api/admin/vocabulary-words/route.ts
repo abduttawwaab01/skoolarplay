@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
       antonyms,
       difficulty,
       audioUrl,
-      imageUrl,
       scrambledWord,
       missingLetter,
     } = body;
@@ -91,7 +90,6 @@ export async function POST(req: NextRequest) {
         antonyms: antonyms ? JSON.stringify(antonyms) : null,
         difficulty: difficulty || "MEDIUM",
         audioUrl: audioUrl || null,
-        imageUrl: imageUrl || null,
         scrambledWord: scrambled || null,
         missingLetter: missingLetter || null,
       },
@@ -126,7 +124,6 @@ export async function PUT(req: NextRequest) {
       antonyms,
       difficulty,
       audioUrl,
-      imageUrl,
       scrambledWord,
       missingLetter,
     } = body;
@@ -145,7 +142,6 @@ export async function PUT(req: NextRequest) {
     if (antonyms !== undefined) updateData.antonyms = antonyms ? JSON.stringify(antonyms) : null;
     if (difficulty !== undefined) updateData.difficulty = difficulty;
     if (audioUrl !== undefined) updateData.audioUrl = audioUrl;
-    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
     if (scrambledWord !== undefined) updateData.scrambledWord = scrambledWord;
     if (missingLetter !== undefined) updateData.missingLetter = missingLetter;
 

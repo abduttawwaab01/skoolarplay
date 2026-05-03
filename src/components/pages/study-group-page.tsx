@@ -46,13 +46,17 @@ import { useAppStore } from '@/store/app-store'
 import { useAuthStore } from '@/store/auth-store'
 import { useSoundEffect } from '@/hooks/use-sound'
 import { PlanBadge, getUserTier } from '@/components/shared/plan-badge'
+import { UserLink } from '@/components/shared/user-link'
 
 interface Member {
-  userId: string
-  name: string
-  avatar: string | null
-  xp: number
-  level: number
+  user: {
+    id: string
+    name: string
+    avatar: string | null
+    xp: number
+    level: number
+    isPremium?: boolean
+  }
   role: string
   joinedAt: string
   isPremium?: boolean
@@ -479,7 +483,7 @@ export function StudyGroupPage() {
                       </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate flex items-center gap-1">
-                            <UserLink userId={m.userId} name={m.user.name}>
+                            <UserLink userId={m.user.id} name={m.user.name}>
                               {m.user.name}
                             </UserLink>
                           <PlanBadge tier={getUserTier((m.user as any).isPremium)} size="tiny" />

@@ -488,29 +488,36 @@ export async function POST(
     }
 
     // Upsert lesson progress (only for real lessons, not reviews)
-    let progress = null
+    let progress = await db.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId, lessonId: id } },
+    })
     if (!isReview) {
-      progress = await db.lessonProgress.upsert({
-        where: { userId_lessonId: { userId, lessonId: id } },
-        create: {
-          userId,
-          lessonId: id,
-          completed: true,
-          score: percentage,
-          attempts: 1,
-          bestScore: percentage,
-          completedAt: new Date(),
-          timeSpent: timeSpent || 0,
-        },
-        update: {
-          completed: true,
-          score: percentage,
-          attempts: { increment: 1 },
-          bestScore: Math.max(previousBestScore, percentage),
-          completedAt: !existingProgress?.completedAt ? new Date() : undefined,
-          timeSpent: timeSpent || existingProgress?.timeSpent || 0,
-        },
-      })
+      if (progress) {
+        progress = await db.lessonProgress.update({
+          where: { userId_lessonId: { userId, lessonId: id } },
+          data: {
+            completed: true,
+            score: percentage,
+            attempts: { increment: 1 },
+            bestScore: Math.max(progress.bestScore || 0, percentage),
+            completedAt: !progress.completedAt ? new Date() : progress.completedAt,
+            timeSpent: timeSpent || progress.timeSpent || 0,
+          },
+        })
+      } else {
+        progress = await db.lessonProgress.create({
+          data: {
+            userId,
+            lessonId: id,
+            completed: true,
+            score: percentage,
+            attempts: 1,
+            bestScore: percentage,
+            completedAt: new Date(),
+            timeSpent: timeSpent || 0,
+          },
+        })
+      }
     }
 
     // Update user XP, gems, and level only if rewards are earned
@@ -1049,12 +1056,12 @@ export async function POST(
       passed: true,
       score: percentage,
       cutoffScore,
-      progress: {
+      progress: progress ? {
         completed: progress.completed,
         score: progress.score,
         attempts: progress.attempts,
         bestScore: progress.bestScore,
-      },
+      } : null,
        xpEarned: boostedXp + achievementXpTotal,
        baseXp: finalXp + achievementXpTotal,
        gemsEarned: finalGems + achievementGemsTotal,

@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
     const moduleId = searchParams.get("moduleId") || "";
     const lessonId = searchParams.get("lessonId") || "";
 
+    if (!lessonId && !moduleId && !courseId) {
+      return NextResponse.json({ questions: [] });
+    }
+
     const where: any = {};
 
     if (lessonId) {
