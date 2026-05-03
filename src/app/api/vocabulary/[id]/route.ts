@@ -62,7 +62,6 @@ export async function GET(
         scrambledWord: w.scrambledWord,
         missingLetter: w.missingLetter,
         audioUrl: w.audioUrl,
-        imageUrl: w.imageUrl,
       })),
       progress,
     });

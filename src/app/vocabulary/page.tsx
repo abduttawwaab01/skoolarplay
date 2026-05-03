@@ -17,6 +17,7 @@ interface VocabularySet {
   description: string | null
   language: string
   difficulty: string
+  level: string | null
   xpReward: number
   gemReward: number
   isPremium: boolean
@@ -56,6 +57,7 @@ export default function VocabularyPage() {
   const [loading, setLoading] = useState(true)
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all')
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all')
+  const [selectedLevel, setSelectedLevel] = useState<string>('all')
 
   const languages = [...new Set(sets.map(s => s.language))]
 
@@ -80,6 +82,7 @@ export default function VocabularyPage() {
   const filteredSets = sets.filter(set => {
     if (selectedLanguage !== 'all' && set.language !== selectedLanguage) return false
     if (selectedDifficulty !== 'all' && set.difficulty !== selectedDifficulty) return false
+    if (selectedLevel !== 'all' && set.level !== selectedLevel) return false
     return true
   })
 
@@ -154,10 +157,24 @@ export default function VocabularyPage() {
             onChange={(e) => setSelectedDifficulty(e.target.value)}
             className="border rounded-lg px-3 py-2 bg-background text-sm"
           >
-            <option value="all">All Levels</option>
+            <option value="all">All Difficulties</option>
             <option value="BEGINNER">Beginner</option>
             <option value="INTERMEDIATE">Intermediate</option>
             <option value="ADVANCED">Advanced</option>
+          </select>
+
+          <select
+            value={selectedLevel}
+            onChange={(e) => setSelectedLevel(e.target.value)}
+            className="border rounded-lg px-3 py-2 bg-background text-sm"
+          >
+            <option value="all">All CEFR Levels</option>
+            <option value="A1">A1 - Beginner</option>
+            <option value="A2">A2 - Elementary</option>
+            <option value="B1">B1 - Intermediate</option>
+            <option value="B2">B2 - Upper Intermediate</option>
+            <option value="C1">C1 - Advanced</option>
+            <option value="C2">C2 - Mastery</option>
           </select>
         </div>
 

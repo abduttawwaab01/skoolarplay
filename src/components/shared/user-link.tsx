@@ -1,6 +1,7 @@
 'use client'
 
 import { useAppStore } from '@/store/app-store'
+import { PageName } from '@/store/app-store'
 
 interface UserLinkProps {
   userId: string
@@ -17,7 +18,7 @@ export function UserLink({ userId, name, avatar, showAvatar = false, className =
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    navigateTo(`profile/${userId}`)
+    navigateTo(`profile/${userId}` as PageName)
   }
 
   return (

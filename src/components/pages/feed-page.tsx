@@ -45,6 +45,7 @@ import { useSoundEffect } from '@/hooks/use-sound'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { PlanBadge, type PlanTier, getUserTier } from '@/components/shared/plan-badge'
+import { UserLink } from '@/components/shared/user-link'
 
 interface FeedPost {
   id: string
@@ -532,7 +533,7 @@ export default function FeedPage() {
                       </Avatar>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <UserLink userId={post.authorId} name={post.author.name} showAvatar={false}>
+                          <UserLink userId={post.author.id} name={post.author.name} showAvatar={false}>
                             <span className="font-semibold text-sm">{post.author.name}</span>
                           </UserLink>
                           {post.author.planTier && post.author.planTier !== 'FREE' && (
@@ -752,7 +753,7 @@ export default function FeedPage() {
                                 </Avatar>
                                 <div className="flex-1 bg-muted/50 rounded-lg p-2">
                                   <div className="flex items-center gap-2 mb-1">
-                                     <UserLink userId={comment.userId} name={comment.user.name}>
+                                     <UserLink userId={comment.user.id} name={comment.user.name}>
                                        <span className="text-sm font-semibold">{comment.user.name}</span>
                                      </UserLink>
                                     <PlanBadge tier={getUserTier((comment.user as any).isPremium)} size="tiny" />

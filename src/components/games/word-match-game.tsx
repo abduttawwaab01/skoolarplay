@@ -61,7 +61,7 @@ export function WordMatchGame({ onComplete, timeLimit = 120, difficulty }: WordM
   const [totalWrong, setTotalWrong] = useState(0)
   const startTimeRef = useRef(Date.now())
 
-  const shuffle = (array: unknown[]) => [...array].sort(() => Math.random() - 0.5)
+  const shuffle = <T,>(array: T[]): T[] => [...array].sort(() => Math.random() - 0.5)
 
   const getWordCount = (r: number) => {
     const base = difficulty === 'EXPERT' ? 8 : difficulty === 'HARD' ? 6 : difficulty === 'MEDIUM' ? 5 : 4

@@ -408,6 +408,7 @@ export function getMinTierForFeature(featureKey: PremiumFeatureKey): PlanTier {
     LEARNING_PATHS: 'PREMIUM',
     TEACHER_BOOKING: 'PREMIUM',
     DOUBLE_GEMS: 'PREMIUM',
+    GAME_CENTER: 'PREMIUM',
   }
   
   return tierMap[featureKey] || 'FREE'
