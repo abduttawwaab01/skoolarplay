@@ -105,10 +105,14 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@babel/parser": "^7.29.3",
+    "@babel/traverse": "^7.29.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
+    "@types/babel__parser": "^7.0.0",
+    "@types/babel__traverse": "^7.28.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.19.39",

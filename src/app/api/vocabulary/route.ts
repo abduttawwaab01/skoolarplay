@@ -16,10 +16,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const language = searchParams.get("language") || "";
     const difficulty = searchParams.get("difficulty") || "";
+    const level = searchParams.get("level") || ""; // CEFR level: A1, A2, B1, B2, C1, C2
 
     const where: any = { isActive: true };
     if (language) where.language = language;
     if (difficulty) where.difficulty = difficulty;
+    if (level) where.level = level;
 
     // Get user's progress for each set
     const progress = await db.vocabularyProgress.findMany({
@@ -65,6 +67,7 @@ export async function GET(req: NextRequest) {
       description: set.description,
       language: set.language,
       difficulty: set.difficulty,
+      level: set.level,
       xpReward: set.xpReward,
       gemReward: set.gemReward,
       isPremium: set.isPremium,
