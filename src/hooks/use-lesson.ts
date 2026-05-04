@@ -60,6 +60,28 @@ export interface LessonData {
     quizXpReward: number
     quizGemReward: number
   } | null
+  storyLesson?: {
+    id: string
+    title: string
+    narrative: string
+    character: string | null
+    setting: string | null
+    mood: string | null
+    choices: any | null
+    languageCode?: string
+    readingLevel?: string
+    estimatedReadingTime?: number
+    ttsVoice?: string
+    ttsSpeed?: number
+    ttsLanguage?: string
+    chapters?: any[] | null
+    hasBranching?: boolean
+    branchingPaths?: any | null
+    totalQuestions?: number
+    passingScore?: number
+    xpReward?: number
+    gemReward?: number
+  } | null
 }
 
 export interface VideoContentData {

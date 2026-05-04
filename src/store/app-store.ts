@@ -100,6 +100,7 @@ export type PageName =
   | "game-center"
   | "admin-games"
   | "admin-game-settings"
+  | "admin-stories"
   | "verify-email";
 
 interface AppState {

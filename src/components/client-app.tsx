@@ -103,6 +103,7 @@ const AdminFeatureTiersPage = dynamic(() => import('@/components/pages/admin/fea
 const AdminGiftCodesPage = dynamic(() => import('@/components/pages/admin/gift-codes-page').then(mod => mod.AdminGiftCodesPage))
 const AdminVocabularyPage = dynamic(() => import('@/components/pages/admin/vocabulary-page').then(mod => mod.AdminVocabularyPage))
 const AdminVideoQuizPage = dynamic(() => import('@/components/pages/admin/video-quiz-page').then(mod => mod.AdminVideoQuizPage))
+const AdminStoriesPage = dynamic(() => import('@/components/pages/admin/stories-page').then(mod => mod.AdminStoriesPage))
 const AdminProfilePage = dynamic(() => import('@/components/pages/admin/profile-page').then(mod => mod.AdminProfilePage))
 const AdminStudyPathsPage = dynamic(() => import('@/components/pages/admin/study-paths-page').then(mod => mod.AdminStudyPathsPage))
 const AdminGameCenterSettingsPage = dynamic(() => import('@/components/pages/admin/game-center-settings-page').then(mod => mod.AdminGameCenterSettingsPage))
@@ -293,6 +294,7 @@ export default function ClientApp() {
       case 'admin-gift-codes': return <AdminGiftCodesPage />
       case 'admin-vocabulary': return <AdminVocabularyPage />
       case 'admin-video-quiz': return <AdminVideoQuizPage />
+      case 'admin-stories': return <AdminStoriesPage />
       case 'admin-profile': return <AdminProfilePage />
       case 'gem-history': return effectiveAuth ? <GemHistoryPage /> : <LoginPage />
       case 'game-center': return effectiveAuth ? <GameCenterPage /> : <LoginPage />

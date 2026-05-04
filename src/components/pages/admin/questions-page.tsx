@@ -171,7 +171,7 @@ export function AdminQuestionsPage() {
       { text: '', isCorrect: false },
       { text: '', isCorrect: false },
     ])
-    setFormCorrectAnswer('')
+    setFormCorrectAnswer(JSON.stringify({ scenario: '', turns: [{ speaker: 'A', text: '', isBlank: false }, { speaker: 'B', text: '', isBlank: true }], responseMode: 'choices', choices: ['', '', ''], correctIndex: 0, correctAnswer: '' }))
     setFormHint('')
     setFormExplanation('')
     setFormPoints(10)
@@ -267,6 +267,28 @@ export function AdminQuestionsPage() {
                         String(ca || 'true')
         setFormCorrectAnswer(tfAnswer)
         setFormOptions([])
+      } else if (q.type === 'CONVERSATION') {
+        // CONVERSATION: store full data in formCorrectAnswer
+        try {
+          const opts = JSON.parse(q.options || '{}')
+          if (opts.turns) {
+            const convData = {
+              scenario: opts.scenario || '',
+              turns: opts.turns,
+              choices: opts.choices || [],
+              responseMode: opts.responseMode || 'text',
+              correctAnswer: typeof ca === 'string' ? ca : JSON.stringify(ca || ''),
+              correctIndex: opts.correctIndex,
+              correctResponse: typeof ca === 'string' ? ca : '',
+            }
+            setFormCorrectAnswer(JSON.stringify(convData))
+          } else {
+            setFormCorrectAnswer('')
+          }
+        } catch {
+          setFormCorrectAnswer('')
+        }
+        setFormOptions([])
       } else {
         // FILL_BLANK, SPEECH - correct answer is text
         setFormCorrectAnswer(typeof ca === 'string' ? ca : JSON.stringify(ca || ''))
@@ -295,6 +317,9 @@ export function AdminQuestionsPage() {
       
       // Types where correctAnswer is stored differently
       const orderedTypes = ['MATCHING', 'ORDERING', 'DRAG_DROP']
+      
+      // Types that have their own special handling
+      const specialTypes = ['TRUE_FALSE', 'FILL_BLANK', 'SPEECH', 'CONVERSATION']
       
       if (optionTypes.includes(formType)) {
         const validOptions = formOptions.filter(o => o.text.trim())
@@ -363,6 +388,32 @@ export function AdminQuestionsPage() {
           return
         }
         correctAnswerData = formCorrectAnswer === 'true' ? 'true' : 'false'
+      } else if (formType === 'CONVERSATION') {
+        if (!formCorrectAnswer) {
+          toast.error('Please configure the conversation')
+          return
+        }
+        try {
+          const parsed = JSON.parse(formCorrectAnswer)
+          if (!parsed.turns || parsed.turns.length === 0) {
+            toast.error('Please add at least one conversation turn')
+            return
+          }
+          if (!parsed.turns.some((t: any) => t.isBlank)) {
+            toast.error('Please mark at least one turn as the student response (blank)')
+            return
+          }
+          const correctAnswer = parsed.correctAnswer || parsed.correctResponse || ''
+          if (!correctAnswer) {
+            toast.error('Please set the correct response')
+            return
+          }
+          optionsData = JSON.stringify({ scenario: parsed.scenario || '', turns: parsed.turns, choices: parsed.choices || [], responseMode: parsed.responseMode || 'text' })
+          correctAnswerData = correctAnswer
+        } catch {
+          toast.error('Invalid conversation data')
+          return
+        }
       } else {
         // FILL_BLANK, SPEECH
         if (!formCorrectAnswer) {
@@ -425,6 +476,8 @@ export function AdminQuestionsPage() {
     MATCHING: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
     TRUE_FALSE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     ORDERING: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    SPEECH: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    CONVERSATION: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
   }
 
   const addOption = () => {
@@ -646,6 +699,7 @@ export function AdminQuestionsPage() {
                   <SelectItem value="ORDERING">Ordering</SelectItem>
                   <SelectItem value="CHECKBOX">Multiple Selection (Checkbox)</SelectItem>
                   <SelectItem value="SPEECH">Speech Recognition</SelectItem>
+                  <SelectItem value="CONVERSATION">Conversation Practice</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -906,6 +960,250 @@ export function AdminQuestionsPage() {
               </div>
             )}
 
+            {formType === 'CONVERSATION' && (
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 dark:bg-teal-950/30 dark:border-teal-800">
+                  <p className="text-sm font-medium text-teal-700 dark:text-teal-300">Conversation Practice</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Create a multi-turn conversation. Mark one turn as the blank where the student responds.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Scenario / Context</Label>
+                  <Input
+                    value={(() => {
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        return parsed.scenario || ''
+                      } catch { return '' }
+                    })()}
+                    onChange={(e) => {
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        parsed.scenario = e.target.value
+                        setFormCorrectAnswer(JSON.stringify(parsed))
+                      } catch {
+                        setFormCorrectAnswer(JSON.stringify({ scenario: e.target.value }))
+                      }
+                    }}
+                    placeholder="e.g., At a restaurant, Job interview"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Conversation Turns</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Add each speaker&apos;s line. Check &quot;Student responds&quot; for the turn where the blank appears.
+                  </p>
+                  <div className="space-y-3">
+                    {(() => {
+                      let turns: Array<{ speaker: string; text: string; isBlank: boolean }> = []
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        turns = parsed.turns || []
+                      } catch {}
+                      if (turns.length === 0) turns = [{ speaker: 'A', text: '', isBlank: false }]
+
+                      return turns.map((turn, i) => (
+                        <div key={i} className="flex gap-2 items-start p-3 rounded-lg border bg-card">
+                          <Select
+                            value={turn.speaker}
+                            onValueChange={(v) => {
+                              const newTurns = [...turns]
+                              newTurns[i] = { ...newTurns[i], speaker: v }
+                              const parsed = JSON.parse(formCorrectAnswer || '{}')
+                              parsed.turns = newTurns
+                              setFormCorrectAnswer(JSON.stringify(parsed))
+                            }}
+                          >
+                            <SelectTrigger className="w-20 h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="A">Speaker A</SelectItem>
+                              <SelectItem value="B">Speaker B</SelectItem>
+                              <SelectItem value="C">Speaker C</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={turn.text}
+                            onChange={(e) => {
+                              const newTurns = [...turns]
+                              newTurns[i] = { ...newTurns[i], text: e.target.value }
+                              const parsed = JSON.parse(formCorrectAnswer || '{}')
+                              parsed.turns = newTurns
+                              setFormCorrectAnswer(JSON.stringify(parsed))
+                            }}
+                            placeholder="What they say..."
+                            className="flex-1"
+                          />
+                          <div className="flex items-center gap-1 pt-1">
+                            <input
+                              type="checkbox"
+                              checked={turn.isBlank}
+                              onChange={(e) => {
+                                const newTurns = turns.map((t, j) => ({ ...t, isBlank: j === i ? e.target.checked : false }))
+                                const parsed = JSON.parse(formCorrectAnswer || '{}')
+                                parsed.turns = newTurns
+                                setFormCorrectAnswer(JSON.stringify(parsed))
+                              }}
+                              className="accent-teal-500 w-4 h-4"
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Blank</span>
+                          </div>
+                          {turns.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => {
+                                const newTurns = turns.filter((_, j) => j !== i)
+                                const parsed = JSON.parse(formCorrectAnswer || '{}')
+                                parsed.turns = newTurns
+                                setFormCorrectAnswer(JSON.stringify(parsed))
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        const turns = parsed.turns || []
+                        const nextSpeaker = turns.length % 2 === 0 ? 'A' : 'B'
+                        parsed.turns = [...turns, { speaker: nextSpeaker, text: '', isBlank: false }]
+                        setFormCorrectAnswer(JSON.stringify(parsed))
+                      } catch {
+                        setFormCorrectAnswer(JSON.stringify({ turns: [{ speaker: 'A', text: '', isBlank: false }, { speaker: 'B', text: '', isBlank: false }] }))
+                      }
+                    }}
+                    className="gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add Turn
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Response Mode</Label>
+                  <Select
+                    value={(() => {
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        return parsed.responseMode || 'choices'
+                      } catch { return 'choices' }
+                    })()}
+                    onValueChange={(v) => {
+                      try {
+                        const parsed = JSON.parse(formCorrectAnswer || '{}')
+                        parsed.responseMode = v
+                        if (v === 'choices' && !parsed.choices) parsed.choices = ['', '', '']
+                        setFormCorrectAnswer(JSON.stringify(parsed))
+                      } catch {}
+                    }}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="choices">Multiple Choice (select from options)</SelectItem>
+                      <SelectItem value="text">Text Input (type response)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(() => {
+                  try {
+                    const parsed = JSON.parse(formCorrectAnswer || '{}')
+                    if (parsed.responseMode === 'text') {
+                      return (
+                        <div className="space-y-2">
+                          <Label>Correct Response (text match)</Label>
+                          <Input
+                            value={parsed.correctResponse || ''}
+                            onChange={(e) => {
+                              parsed.correctResponse = e.target.value
+                              setFormCorrectAnswer(JSON.stringify(parsed))
+                            }}
+                            placeholder="The expected response"
+                          />
+                          <p className="text-xs text-muted-foreground">Fuzzy matching is used (80% word match)</p>
+                        </div>
+                      )
+                    }
+                    if (parsed.choices && parsed.choices.length > 0) {
+                      return (
+                        <div className="space-y-2">
+                          <Label>Response Choices</Label>
+                          <p className="text-xs text-muted-foreground">Add the possible responses. Click the radio button for the correct one.</p>
+                          <div className="space-y-2">
+                            {parsed.choices.map((choice: string, i: number) => (
+                              <div key={i} className="flex gap-2 items-center">
+                                <input
+                                  type="radio"
+                                  name="conv-correct"
+                                  checked={parsed.correctIndex === i}
+                                  onChange={() => {
+                                    parsed.correctIndex = i
+                                    parsed.correctAnswer = choice
+                                    setFormCorrectAnswer(JSON.stringify(parsed))
+                                  }}
+                                  className="accent-teal-500"
+                                />
+                                <Input
+                                  value={choice}
+                                  onChange={(e) => {
+                                    const newChoices = [...parsed.choices]
+                                    newChoices[i] = e.target.value
+                                    parsed.choices = newChoices
+                                    if (parsed.correctIndex === i) parsed.correctAnswer = e.target.value
+                                    setFormCorrectAnswer(JSON.stringify(parsed))
+                                  }}
+                                  placeholder={`Choice ${i + 1}`}
+                                  className="flex-1"
+                                />
+                                {parsed.choices.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    onClick={() => {
+                                      parsed.choices.splice(i, 1)
+                                      if (parsed.correctIndex === i) parsed.correctIndex = 0
+                                      setFormCorrectAnswer(JSON.stringify(parsed))
+                                    }}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              parsed.choices.push('')
+                              setFormCorrectAnswer(JSON.stringify(parsed))
+                            }}
+                            className="gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add Choice
+                          </Button>
+                        </div>
+                      )
+                    }
+                    return null
+                  } catch { return null }
+                })()}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Hint (optional)</Label>
               <Input value={formHint} onChange={(e) => setFormHint(e.target.value)} placeholder="Hint for the student" />
@@ -1097,6 +1395,52 @@ export function AdminQuestionsPage() {
                   <span className="text-sm text-muted-foreground">Expected Answer: </span>
                   <span className="font-medium">{previewQuestion.correctAnswer}</span>
                   <p className="text-xs text-muted-foreground mt-1">Students will speak this word for pronunciation check</p>
+                </div>
+              )}
+
+              {previewQuestion.type === 'CONVERSATION' && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Conversation Preview:</Label>
+                  {(() => {
+                    try {
+                      const opts = JSON.parse(previewQuestion.options || '{}')
+                      if (!opts.turns) return <div className="text-sm text-muted-foreground">No conversation data</div>
+
+                      return (
+                        <div className="space-y-2">
+                          {opts.scenario && (
+                            <p className="text-sm font-medium text-teal-600 dark:text-teal-400 italic">{opts.scenario}</p>
+                          )}
+                          {opts.turns.map((turn: any, i: number) => (
+                            <div key={i} className={`flex ${turn.speaker === 'A' || turn.speaker === 'C' ? 'justify-start' : 'justify-end'}`}>
+                              <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                                turn.isBlank
+                                  ? 'bg-teal-100 dark:bg-teal-900/30 border-2 border-dashed border-teal-400 text-teal-700 dark:text-teal-300 font-medium'
+                                  : turn.speaker === 'B'
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200'
+                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                              }`}>
+                                <span className="text-xs font-bold opacity-70">{turn.speaker}: </span>
+                                {turn.isBlank ? '[Student responds]' : turn.text}
+                              </div>
+                            </div>
+                          ))}
+                          {opts.choices && opts.choices.length > 0 && (
+                            <div className="mt-2 p-2 rounded bg-muted text-xs">
+                              <p className="font-medium mb-1">Choices:</p>
+                              {opts.choices.map((c: string, i: number) => (
+                                <p key={i} className={opts.correctIndex === i ? 'text-green-600 dark:text-green-400 font-medium' : ''}>
+                                  {opts.correctIndex === i ? '✓ ' : ''}{c}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    } catch {
+                      return <div className="text-sm text-muted-foreground">Invalid conversation data</div>
+                    }
+                  })()}
                 </div>
               )}
               {previewQuestion.hint && (

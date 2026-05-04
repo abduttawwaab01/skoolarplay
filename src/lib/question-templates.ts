@@ -40,11 +40,12 @@ export function getQuestionDistribution(count: number = 12): QuestionType[] {
 export interface QuestionTemplate {
   type: QuestionType;
   question: string;
-  options?: string[]; // For MCQ, MATCHING, ORDERING, CHECKBOX
-  correctAnswer: string; // JSON string
+  options?: string[] | string;
+  correctAnswer: string;
   explanation: string;
   hint?: string;
-  language?: string; // For SPEECH questions
+  language?: string;
+  points?: number;
 }
 
 // Generate questions for a specific topic at A1 level (English)
@@ -167,6 +168,7 @@ export function generateA1EnglishQuestions(
     const question: QuestionTemplate = {
       type,
       question: qData.q,
+      correctAnswer: qData.ans || '',
       explanation: qData.exp
     };
     

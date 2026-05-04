@@ -162,6 +162,59 @@ export function compareAnswers(
     )
   }
 
+  if (typeUpper === 'CONVERSATION') {
+    const submitted = submittedAnswer.toLowerCase().trim()
+    const correct = String(correctAnswerData).toLowerCase().trim()
+
+    if (submitted === correct) {
+      return true
+    }
+
+    let correctOption: string = correctAnswerData
+    try {
+      const parsed = JSON.parse(correctAnswerData)
+      if (typeof parsed === 'string') {
+        correctOption = parsed.toLowerCase().trim()
+      } else if (typeof parsed === 'number') {
+        const opts = JSON.parse(submittedAnswer)
+        if (Array.isArray(opts) && parsed >= 0 && parsed < opts.length) {
+          return true
+        }
+        return false
+      }
+    } catch {
+      correctOption = correct
+    }
+
+    if (submitted === correctOption) {
+      return true
+    }
+
+    const normalizeString = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    const normalizedSubmitted = normalizeString(submitted)
+    const normalizedExpected = normalizeString(correctOption)
+
+    if (normalizedSubmitted === normalizedExpected) {
+      return true
+    }
+
+    const wordsExpected = new Set(normalizedExpected.split(' ').filter(w => w.length > 2))
+    const wordsSubmitted = normalizedSubmitted.split(' ').filter(w => w.length > 2)
+
+    if (wordsExpected.size === 0) return false
+
+    const matchingWords = wordsSubmitted.filter(w => wordsExpected.has(w))
+    const matchRatio = matchingWords.length / wordsExpected.size
+
+    return matchRatio >= 0.8
+  }
+
   if (typeUpper === 'SPEECH') {
     const submitted = submittedAnswer.toLowerCase().trim()
     const expected = String(correctAnswerData).toLowerCase().trim()

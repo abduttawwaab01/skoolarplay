@@ -8,6 +8,45 @@ interface TTSConfig {
   lang?: string
 }
 
+interface LanguageVoiceConfig {
+  lang: string
+  name: string
+  nativeName: string
+  voices: string[]
+  defaultVoice: string
+  fallbackLang?: string
+}
+
+const languageVoiceMap: Record<string, LanguageVoiceConfig> = {
+  // Nigerian languages (use ZAI)
+  yo: { lang: 'yo', name: 'Yoruba', nativeName: 'Yorùbá', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  ig: { lang: 'ig', name: 'Igbo', nativeName: 'Igbo', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  ha: { lang: 'ha', name: 'Hausa', nativeName: 'Hausa', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  pcm: { lang: 'pcm', name: 'Pidgin', nativeName: 'Naija', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  
+  // European languages (use ZAI with appropriate voices)
+  en: { lang: 'en', name: 'English', nativeName: 'English', voices: ['jam', 'tongtong'], defaultVoice: 'jam', fallbackLang: 'en-US' },
+  fr: { lang: 'fr', name: 'French', nativeName: 'Français', voices: ['chuichui', 'jam'], defaultVoice: 'chuichui', fallbackLang: 'fr-FR' },
+  de: { lang: 'de', name: 'German', nativeName: 'Deutsch', voices: ['luodo', 'jam'], defaultVoice: 'luodo', fallbackLang: 'de-DE' },
+  es: { lang: 'es', name: 'Spanish', nativeName: 'Español', voices: ['xiaochen', 'jam'], defaultVoice: 'xiaochen', fallbackLang: 'es-ES' },
+  it: { lang: 'it', name: 'Italian', nativeName: 'Italiano', voices: ['jam', 'tongtong'], defaultVoice: 'jam', fallbackLang: 'it-IT' },
+  pt: { lang: 'pt', name: 'Portuguese', nativeName: 'Português', voices: ['jam', 'tongtong'], defaultVoice: 'jam', fallbackLang: 'pt-BR' },
+  ru: { lang: 'ru', name: 'Russian', nativeName: 'Русский', voices: ['jam', 'douji'], defaultVoice: 'jam', fallbackLang: 'ru-RU' },
+  
+  // Asian languages
+  zh: { lang: 'zh', name: 'Chinese', nativeName: '中文', voices: ['tongtong', 'chuichui'], defaultVoice: 'tongtong', fallbackLang: 'zh-CN' },
+  ja: { lang: 'ja', name: 'Japanese', nativeName: '日本語', voices: ['chuichui', 'jam'], defaultVoice: 'chuichui', fallbackLang: 'ja-JP' },
+  ko: { lang: 'ko', name: 'Korean', nativeName: '한국어', voices: ['jam', 'tongtong'], defaultVoice: 'jam', fallbackLang: 'ko-KR' },
+  hi: { lang: 'hi', name: 'Hindi', nativeName: 'हिन्दी', voices: ['jam', 'kazi'], defaultVoice: 'jam', fallbackLang: 'hi-IN' },
+  ar: { lang: 'ar', name: 'Arabic', nativeName: 'العربية', voices: ['jam', 'kazi'], defaultVoice: 'jam', fallbackLang: 'ar-SA' },
+  sw: { lang: 'sw', name: 'Swahili', nativeName: 'Kiswahili', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  
+  // African languages
+  am: { lang: 'am', name: 'Amharic', nativeName: 'አማርኛ', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  zu: { lang: 'zu', name: 'Zulu', nativeName: 'isiZulu', voices: ['jam', 'kazi'], defaultVoice: 'jam' },
+  af: { lang: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', voices: ['jam'], defaultVoice: 'jam', fallbackLang: 'af-ZA' },
+}
+
 const rateLimitMap = new Map<string, number[]>()
 const DEFAULT_RATE_LIMIT = 30
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
@@ -43,22 +82,29 @@ function checkRateLimit(userId: string): boolean {
 }
 
 function selectTTSTransport(lang?: string): TTSConfig {
-  const normalizedLang = (lang || 'yo').toLowerCase().split('-')[0]
+  const normalizedLang = (lang || 'en').toLowerCase().split('-')[0]
   
-  const nigerianLanguages = ['yo', 'ig', 'ha', 'pcm']
+  const langConfig = languageVoiceMap[normalizedLang]
   
-  if (nigerianLanguages.includes(normalizedLang)) {
+  if (langConfig) {
     return {
       provider: 'zai',
-      voice: 'jam',
+      voice: langConfig.defaultVoice,
       lang: normalizedLang
     }
   }
   
+  // Fallback to browser TTS for unsupported languages
   return {
     provider: 'browser',
     lang: normalizedLang
   }
+}
+
+function getLanguageConfig(lang?: string): LanguageVoiceConfig | null {
+  if (!lang) return null
+  const normalizedLang = lang.toLowerCase().split('-')[0]
+  return languageVoiceMap[normalizedLang] || null
 }
 
 function splitTextIntoChunks(text: string, maxLength = 1000): string[] {
@@ -173,7 +219,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { text, voice = 'jam', speed = 0.9, lang } = body as {
+    const { text, voice, speed = 1.0, lang = 'en' } = body as {
       text?: string
       voice?: string
       speed?: number
@@ -186,10 +232,12 @@ export async function POST(req: NextRequest) {
 
     const cleanedText = text.trim().replace(/\s+/g, ' ')
     const ttsConfig = selectTTSTransport(lang)
+    const langConfig = getLanguageConfig(lang)
 
     if (ttsConfig.provider === 'zai') {
       const validVoices = ['tongtong', 'chuichui', 'xiaochen', 'jam', 'kazi', 'douji', 'luodo']
-      if (!validVoices.includes(voice)) {
+      const selectedVoice = voice || ttsConfig.voice || 'jam'
+      if (!validVoices.includes(selectedVoice)) {
         return NextResponse.json(
           { error: `Invalid voice. Must be one of: ${validVoices.join(', ')}` },
           { status: 400 }
@@ -207,11 +255,11 @@ export async function POST(req: NextRequest) {
     let audioBuffer: Buffer
 
     if (ttsConfig.provider === 'zai') {
-      audioBuffer = await generateZAITTS(cleanedText, voice, speed)
+      audioBuffer = await generateZAITTS(cleanedText, voice || ttsConfig.voice || 'jam', speed)
     } else {
       return NextResponse.json({
         useBrowserTTS: true,
-        lang: ttsConfig.lang,
+        lang: langConfig?.fallbackLang || ttsConfig.lang || 'en-US',
         text: cleanedText,
         message: 'Use browser Web Speech API for this language'
       }, { status: 200 })
@@ -234,5 +282,26 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Failed to generate speech. Please try again.' }, { status: 500 })
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const lang = searchParams.get('lang') || 'en'
+    
+    const langConfig = getLanguageConfig(lang)
+    const ttsConfig = selectTTSTransport(lang)
+    
+    return NextResponse.json({
+      language: langConfig || { lang, name: lang, nativeName: lang },
+      ttsProvider: ttsConfig.provider,
+      availableVoices: langConfig?.voices || [],
+      defaultVoice: langConfig?.defaultVoice || 'jam',
+      fallbackLang: langConfig?.fallbackLang,
+    })
+  } catch (error) {
+    console.error('TTS config error:', error)
+    return NextResponse.json({ error: 'Failed to get TTS config' }, { status: 500 })
   }
 }

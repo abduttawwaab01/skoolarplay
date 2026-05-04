@@ -46,6 +46,8 @@ import { DraggableCalculator } from '@/components/shared/draggable-calculator'
 import { SpeechRecognition } from '@/components/shared/speech-recognition'
 import { CheckboxQuestion } from '@/components/learning/checkbox-question'
 import { SpeechQuestion } from '@/components/learning/speech-question'
+import { ConversationQuestion } from '@/components/learning/conversation-question'
+import { StoryMode } from '@/components/learning/story-mode'
 
 function QuestionRenderer({
   question,
@@ -75,6 +77,8 @@ function QuestionRenderer({
       return <CheckboxQuestion question={question} onAnswer={onAnswer} showFeedback={showFeedback} isCorrect={isCorrect} />
     case 'SPEECH':
       return <SpeechQuestion question={question} onAnswer={onAnswer} showFeedback={showFeedback} isCorrect={isCorrect} />
+    case 'CONVERSATION':
+      return <ConversationQuestion question={question} onAnswer={onAnswer} showFeedback={showFeedback} isCorrect={isCorrect} />
     default:
       return <McqQuestion question={question} onAnswer={onAnswer} showFeedback={showFeedback} isCorrect={isCorrect} />
   }
@@ -89,6 +93,7 @@ const questionTypeLabel: Record<string, string> = {
   ORDERING: 'Put in Order',
   CHECKBOX: 'Multiple Selection',
   SPEECH: 'Speak',
+  CONVERSATION: 'Conversation',
 }
 
 export function LessonPage() {
@@ -136,23 +141,53 @@ export function LessonPage() {
   const [showLessonPreloader, setShowLessonPreloader] = useState(true)
   const [noteRead, setNoteRead] = useState(false)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
+  const [storyModeActive, setStoryModeActive] = useState(false)
+  const [storyResult, setStoryResult] = useState<{ passed: boolean; score: number; correctAnswers: number; totalQuestions: number } | null>(null)
   const audioButtonRef = useRef<{ play: () => void; stop: () => void; isPlaying: () => boolean } | null>(null)
   const lastAutoPlayTime = useRef<number>(0)
   const autoReadEnabled = useSoundStore((s) => s.autoReadEnabled)
   const ttsEnabled = useSoundStore((s) => s.ttsEnabled)
 
-  // Track if quiz has started (not on note reader)
+  // Track if quiz has started (not on note reader or story)
   const hasNote = lessonData?.lessonNote || null
-  const quizStarted = !hasNote && questions.length > 0
+  const hasStory = lessonData?.storyLesson || null
+  const quizStarted = !hasNote && !hasStory && questions.length > 0
 
-  // Exit confirmation handler
-  const handleExitQuiz = useCallback(() => {
-    if (quizStarted && !isComplete) {
-      setShowExitConfirm(true)
-    } else {
-      performExit()
+  useEffect(() => {
+    if (lessonId && !showLessonPreloader && !storyModeActive) {
+      startLesson(lessonId)
     }
-  }, [quizStarted, isComplete])
+  }, [lessonId, startLesson, showLessonPreloader, storyModeActive])
+
+  // Activate story mode when lesson data loads and has a story
+  useEffect(() => {
+    if (lessonData?.storyLesson && !storyModeActive && !storyResult) {
+      setStoryModeActive(true)
+    }
+  }, [lessonData, storyModeActive, storyResult])
+
+  const handleStoryComplete = useCallback((result: { passed: boolean; score: number; correctAnswers: number; totalQuestions: number }) => {
+    setStoryResult(result)
+    setStoryModeActive(false)
+    setIsCompleting(true)
+    
+    const fallbackResult = {
+      xpEarned: lessonData?.storyLesson?.xpReward || 25,
+      gemsEarned: lessonData?.storyLesson?.gemReward || 5,
+      leveledUp: false,
+      newLevel: 0,
+      lessonReport: {
+        storyCompleted: true,
+        passed: result.passed,
+        score: result.score,
+        correctAnswers: result.correctAnswers,
+        totalQuestions: result.totalQuestions,
+      },
+    }
+    
+    setCompletionResult(fallbackResult)
+    setIsCompleting(false)
+  }, [lessonData])
 
   // Actually perform the exit (clear session and navigate)
   const performExit = useCallback(() => {
@@ -167,6 +202,20 @@ export function LessonPage() {
       goBack()
     }
   }, [goBack, navigateTo, lessonData])
+
+  const handleStoryExit = useCallback(() => {
+    setStoryModeActive(false)
+    performExit()
+  }, [performExit])
+
+  // Exit confirmation handler
+  const handleExitQuiz = useCallback(() => {
+    if (quizStarted && !isComplete) {
+      setShowExitConfirm(true)
+    } else {
+      performExit()
+    }
+  }, [quizStarted, isComplete])
 
   // Browser back button and beforeunload handling
   useEffect(() => {
@@ -229,12 +278,6 @@ export function LessonPage() {
       toast.error('Failed to download lesson')
     }
   }
-
-  useEffect(() => {
-    if (lessonId && !showLessonPreloader) {
-      startLesson(lessonId)
-    }
-  }, [lessonId, startLesson, showLessonPreloader])
 
   useEffect(() => {
     if (hasRecoveredSession) {
@@ -412,6 +455,36 @@ export function LessonPage() {
   }
 
   const showNoteReader = hasNote && !noteRead
+  const showStoryMode = hasStory && storyModeActive && !storyResult
+
+  // Show Story Mode if lesson has a story
+  if (showStoryMode) {
+    return (
+      <StoryMode
+        story={{
+          title: hasStory.title,
+          narrative: hasStory.narrative,
+          character: hasStory.character,
+          setting: hasStory.setting,
+          mood: hasStory.mood,
+          chapters: hasStory.chapters as any,
+          languageCode: hasStory.languageCode,
+          readingLevel: hasStory.readingLevel,
+          estimatedReadingTime: hasStory.estimatedReadingTime,
+          ttsVoice: hasStory.ttsVoice,
+          ttsSpeed: hasStory.ttsSpeed,
+          ttsLanguage: hasStory.ttsLanguage,
+          hasBranching: hasStory.hasBranching,
+          totalQuestions: hasStory.totalQuestions,
+          passingScore: hasStory.passingScore,
+          xpReward: hasStory.xpReward,
+          gemReward: hasStory.gemReward,
+        }}
+        onComplete={handleStoryComplete}
+        onExit={handleStoryExit}
+      />
+    )
+  }
 
   return (
     <TooltipProvider>

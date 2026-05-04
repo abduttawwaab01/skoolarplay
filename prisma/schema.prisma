@@ -775,11 +775,35 @@ model StoryLesson {
   id          String   @id @default(cuid())
   lessonId    String   @unique
   title       String
-  narrative   String
+  narrative   String   @db.Text
   character   String?
   setting     String?
   mood        String?
   choices     String?
+  
+  // Enhanced Story Mode fields
+  languageCode String?  // ISO 639-1 language code (en, yo, ig, ha, fr, de, es, etc.)
+  readingLevel String   @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
+  estimatedReadingTime Int @default(5) // Minutes
+  
+  // TTS metadata
+  ttsVoice     String?  // Preferred voice identifier
+  ttsSpeed     Float    @default(1.0) // Reading speed multiplier
+  ttsLanguage  String?  // TTS language override (defaults to languageCode)
+  
+  // Interactive elements
+  chapters     String   @db.Text // JSON array of chapters: [{title, narrative, questions: [{text, options, correctIndex, explanation}], vocabulary: [{word, translation, context}]}]
+  hasBranching Boolean  @default(false) // Whether story has branching paths
+  branchingPaths String? // JSON for branching story paths
+  
+  // Comprehension
+  totalQuestions Int    @default(0)
+  passingScore   Int    @default(60) // Percentage to pass
+  
+  // Rewards
+  xpReward       Int    @default(25)
+  gemReward      Int    @default(5)
+  
   lesson      Lesson   @relation(fields: [lessonId], references: [id])
 }
 
