@@ -104,8 +104,8 @@ export function AdminStoriesPage() {
   const [modules, setModules] = useState<{ id: string; title: string; courseId: string }[]>([])
   const [lessons, setLessons] = useState<{ id: string; title: string; moduleId: string }[]>([])
 
-  const [filterCourse, setFilterCourse] = useState('')
-  const [filterReadingLevel, setFilterReadingLevel] = useState('')
+  const [filterCourse, setFilterCourse] = useState('all')
+  const [filterReadingLevel, setFilterReadingLevel] = useState('all')
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingStory, setEditingStory] = useState<StoryLesson | null>(null)
@@ -113,7 +113,7 @@ export function AdminStoriesPage() {
   const [previewStory, setPreviewStory] = useState<StoryLesson | null>(null)
   const [activeTab, setActiveTab] = useState('details')
 
-  const [formLessonId, setFormLessonId] = useState('')
+  const [formLessonId, setFormLessonId] = useState('new')
   const [formTitle, setFormTitle] = useState('')
   const [formCharacter, setFormCharacter] = useState('')
   const [formSetting, setFormSetting] = useState('')
@@ -123,7 +123,7 @@ export function AdminStoriesPage() {
   const [formEstimatedReadingTime, setFormEstimatedReadingTime] = useState(5)
   const [formTtsVoice, setFormTtsVoice] = useState('jam')
   const [formTtsSpeed, setFormTtsSpeed] = useState(1.0)
-  const [formTtsLanguage, setFormTtsLanguage] = useState('')
+  const [formTtsLanguage, setFormTtsLanguage] = useState('default')
   const [formPassingScore, setFormPassingScore] = useState(60)
   const [formXpReward, setFormXpReward] = useState(25)
   const [formGemReward, setFormGemReward] = useState(5)
@@ -133,8 +133,8 @@ export function AdminStoriesPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (filterCourse) params.set('courseId', filterCourse)
-      if (filterReadingLevel) params.set('readingLevel', filterReadingLevel)
+      if (filterCourse && filterCourse !== 'all') params.set('courseId', filterCourse)
+      if (filterReadingLevel && filterReadingLevel !== 'all') params.set('readingLevel', filterReadingLevel)
 
       const res = await fetch(`/api/admin/stories?${params}`)
       if (!res.ok) throw new Error('Failed to fetch')
@@ -160,7 +160,7 @@ export function AdminStoriesPage() {
 
   const openCreate = () => {
     setEditingStory(null)
-    setFormLessonId('')
+    setFormLessonId('new')
     setFormTitle('')
     setFormCharacter('')
     setFormSetting('')
@@ -170,7 +170,7 @@ export function AdminStoriesPage() {
     setFormEstimatedReadingTime(5)
     setFormTtsVoice('jam')
     setFormTtsSpeed(1.0)
-    setFormTtsLanguage('')
+    setFormTtsLanguage('default')
     setFormPassingScore(60)
     setFormXpReward(25)
     setFormGemReward(5)
@@ -181,7 +181,7 @@ export function AdminStoriesPage() {
 
   const openEdit = (story: StoryLesson) => {
     setEditingStory(story)
-    setFormLessonId(story.lessonId)
+    setFormLessonId(story.lessonId || 'new')
     setFormTitle(story.title)
     setFormCharacter(story.character || '')
     setFormSetting(story.setting || '')
@@ -191,7 +191,7 @@ export function AdminStoriesPage() {
     setFormEstimatedReadingTime(story.estimatedReadingTime)
     setFormTtsVoice(story.ttsVoice || 'jam')
     setFormTtsSpeed(story.ttsSpeed)
-    setFormTtsLanguage(story.ttsLanguage || '')
+    setFormTtsLanguage(story.ttsLanguage || 'default')
     setFormPassingScore(story.passingScore)
     setFormXpReward(story.xpReward)
     setFormGemReward(story.gemReward)
@@ -223,7 +223,7 @@ export function AdminStoriesPage() {
     const totalQuestions = validChapters.reduce((sum, ch) => sum + (ch.questions?.length || 0), 0)
 
     const storyData = {
-      lessonId: formLessonId || editingStory?.lessonId,
+      lessonId: (formLessonId === 'new' ? null : formLessonId) || (editingStory?.lessonId ?? null),
       title: formTitle.trim(),
       narrative: validChapters.map(ch => ch.narrative).join('\n\n'),
       character: formCharacter.trim() || null,
@@ -234,7 +234,7 @@ export function AdminStoriesPage() {
       estimatedReadingTime: formEstimatedReadingTime,
       ttsVoice: formTtsVoice,
       ttsSpeed: formTtsSpeed,
-      ttsLanguage: formTtsLanguage.trim() || null,
+      ttsLanguage: formTtsLanguage === 'default' ? null : formTtsLanguage.trim() || null,
       chapters: JSON.stringify(validChapters),
       hasBranching: false,
       branchingPaths: null,
@@ -384,7 +384,7 @@ export function AdminStoriesPage() {
           <Select value={filterCourse} onValueChange={setFilterCourse}>
             <SelectTrigger><SelectValue placeholder="All courses" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All courses</SelectItem>
+              <SelectItem value="all">All courses</SelectItem>
               {courses.map(c => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -394,7 +394,7 @@ export function AdminStoriesPage() {
           <Select value={filterReadingLevel} onValueChange={setFilterReadingLevel}>
             <SelectTrigger><SelectValue placeholder="All levels" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All levels</SelectItem>
+              <SelectItem value="all">All levels</SelectItem>
               {READING_LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -571,7 +571,7 @@ export function AdminStoriesPage() {
                     <Select value={formTtsLanguage} onValueChange={setFormTtsLanguage}>
                       <SelectTrigger><SelectValue placeholder="Same as story language" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Use story language</SelectItem>
+                        <SelectItem value="default">Use story language</SelectItem>
                         {LANGUAGES.map(l => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -594,7 +594,7 @@ export function AdminStoriesPage() {
                     <Select value={formLessonId} onValueChange={setFormLessonId}>
                       <SelectTrigger><SelectValue placeholder="Select a lesson or create new" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Auto-create lesson</SelectItem>
+                        <SelectItem value="new">Auto-create lesson</SelectItem>
                         {lessons.map(l => <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>)}
                       </SelectContent>
                     </Select>
