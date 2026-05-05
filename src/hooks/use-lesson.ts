@@ -224,8 +224,8 @@ export function useLesson(): UseLessonReturn {
         return
       }
       
-      if (!res.ok) {
-        setError(data.error || 'Failed to load lesson')
+      if (!res.ok || !data.lesson) {
+        setError(data.error || 'Lesson not found')
         setIsLoading(false)
         return
       }
@@ -233,9 +233,16 @@ export function useLesson(): UseLessonReturn {
       setLessonData(data.lesson)
       lessonIdRef.current = lessonId
       
+      // Guard against missing lesson data
+      if (!data.lesson) {
+        setError('Lesson not found')
+        setIsLoading(false)
+        return
+      }
+      
       // Combine lesson questions with note quiz questions
-      const rawLessonQs = data.lesson?.questions
-      const rawNoteQs = data.lesson?.lessonNote?.quizQuestions
+      const rawLessonQs = data.lesson?.questions || []
+      const rawNoteQs = data.lesson?.lessonNote?.quizQuestions || []
       const lessonQs = Array.isArray(rawLessonQs) ? rawLessonQs : []
       const noteQs = Array.isArray(rawNoteQs) ? rawNoteQs : []
       const allQuestions = [...lessonQs, ...noteQs]
